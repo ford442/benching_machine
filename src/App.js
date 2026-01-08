@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import HallwayVisualization from './components/HallwayVisualization';
 import BenchmarkRunner from './components/BenchmarkRunner';

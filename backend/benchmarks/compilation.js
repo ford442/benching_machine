@@ -23,6 +23,9 @@ class CompilationBenchmark {
 
   /**
    * Eval-based code execution
+   * Note: eval() is used intentionally here for benchmarking purposes only
+   * to measure the performance impact of dynamic code evaluation.
+   * This is not recommended for production code.
    */
   evalExecution(iterations) {
     for (let i = 0; i < iterations; i++) {

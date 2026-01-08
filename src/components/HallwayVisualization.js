@@ -6,6 +6,10 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
   const animationRef = useRef(null);
   const [viewMode, setViewMode] = useState('2d'); // '2d' or 'perspective'
 
+  // Animation constants
+  const ANIMATION_SPEED = 50;
+  const WAVE_AMPLITUDE = 20;
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -26,7 +30,7 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
     // Animation loop
     const animate = () => {
       animationFrame++;
-      drawHallway(ctx, canvas.width, canvas.height, animationFrame, benchmarkData, isRunning, viewMode);
+      drawHallway(ctx, canvas.width, canvas.height, animationFrame, benchmarkData, isRunning, viewMode, ANIMATION_SPEED, WAVE_AMPLITUDE);
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -38,7 +42,7 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [benchmarkData, isRunning, viewMode]);
+  }, [benchmarkData, isRunning, viewMode, ANIMATION_SPEED, WAVE_AMPLITUDE]);
 
   return (
     <div className="hallway-visualization">
@@ -65,13 +69,13 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
 }
 
 // Drawing function for the hallway visualization
-function drawHallway(ctx, width, height, frame, benchmarkData, isRunning, viewMode) {
+function drawHallway(ctx, width, height, frame, benchmarkData, isRunning, viewMode, animationSpeed, waveAmplitude) {
   // Clear canvas
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, width, height);
 
   if (viewMode === 'perspective') {
-    drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunning);
+    drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunning, animationSpeed, waveAmplitude);
   } else {
     draw2DHallway(ctx, width, height, frame, benchmarkData, isRunning);
   }
@@ -133,7 +137,7 @@ function draw2DHallway(ctx, width, height, frame, benchmarkData, isRunning) {
   });
 }
 
-function drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunning) {
+function drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunning, animationSpeed, waveAmplitude) {
   // Draw perspective lines for depth
   const vanishingPointX = width / 2;
   const vanishingPointY = height / 3;
@@ -160,7 +164,7 @@ function drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunn
     const depth = 1 - (i * 0.25);
     const rackWidth = baseRackWidth * depth;
     const rackHeight = 300 * depth;
-    const x = vanishingPointX - rackWidth / 2 + (Math.sin(frame / 50) * 20 * (i - 1));
+    const x = vanishingPointX - rackWidth / 2 + (Math.sin(frame / animationSpeed) * waveAmplitude * (i - 1));
     const y = vanishingPointY + i * 100;
 
     // Draw rack with depth
@@ -226,8 +230,9 @@ function drawBenchmarkBar(ctx, x, y, width, height, benchmark, frame, opacity = 
   ctx.fillText(label, x + 5, y + height / 2 - 8);
 
   // Calculate bar width based on ops/sec
-  const maxOps = 200000; // Normalize to this value
-  const normalizedValue = Math.min(benchmark.opsPerSec / maxOps, 1);
+  // Normalize to reasonable max value (will be capped at 100%)
+  const MAX_OPS_FOR_VISUALIZATION = 200000;
+  const normalizedValue = Math.min(benchmark.opsPerSec / MAX_OPS_FOR_VISUALIZATION, 1);
   const barWidth = (width - 10) * normalizedValue;
 
   // Animated gradient bar
