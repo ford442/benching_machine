@@ -1,6 +1,7 @@
 {
   "name": "benching_machine",
   "version": "1.0.0",
+  "homepage": "/benching-machine",
   "description": "A benchmarking tool comparing JavaScript, Rust, and WebAssembly performance",
   "main": "backend/cli.js",
   "scripts": {
