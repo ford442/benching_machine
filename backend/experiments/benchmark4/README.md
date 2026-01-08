@@ -36,6 +36,7 @@ Expected Output
 ---------------
 - The serial run prints per-frame upload times and a total time.
 - The pipelined run prints uploader-specific upload times and a total time which should be close to the max(compute, upload) if pipelining is effective.
+- This PoC now compares both `writeBuffer` (direct queue writes) and a staging-buffer path (map + copyBufferToBuffer) and attempts to measure GPU completion times using `wgpuQueueOnSubmittedWorkDone` callbacks. The staging path measures map/unmap time and GPU completion time.
 
 Notes
 -----

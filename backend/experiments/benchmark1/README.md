@@ -67,7 +67,8 @@ Notes & Tips
 
 Next steps
 ----------
-- Add variants that measure full round-trip (CPU encode + GPU execution time via timestamp queries).
+- Add variants that measure full round-trip (CPU encode + GPU execution time). This PoC now attempts to measure GPU completion using `wgpuQueueOnSubmittedWorkDone` callbacks to report approximate GPU execution time; if the browser/impl doesn't support it, the code will report a timeout.
+- Compare repeated small dispatches vs single large dispatches to evaluate command buffer submission tax.
 - Compare the "bloat" effect across different browsers.
 - Run with multiple smaller dispatches vs a single large dispatch to see which is more efficient in practice.
 

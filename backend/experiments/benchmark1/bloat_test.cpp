@@ -151,6 +151,27 @@ void run_test(const char* label, uint32_t gridX, uint32_t gridY) {
 
     double t1 = emscripten_get_now();
 
+    // Try to measure GPU completion time using queue completion callback
+    struct QueueDone { double submitTime; double endTime; bool done; } qd;
+    qd.submitTime = t1; qd.endTime = 0.0; qd.done = false;
+    auto queueDoneCb = [](WGPUQueueWorkDoneStatus status, void* userdata) {
+        QueueDone* d = (QueueDone*)userdata;
+        d->endTime = emscripten_get_now();
+        d->done = true;
+    };
+
+    // Register callback
+    wgpuQueueOnSubmittedWorkDone(queue, [](WGPUQueueWorkDoneStatus status, void* userdata){ QueueDone* d = (QueueDone*)userdata; d->endTime = emscripten_get_now(); d->done = true; }, &qd);
+
+    // Wait for GPU completion with timeout
+    int waitTicks = 0;
+    while (!qd.done && waitTicks < 200) {
+        emscripten_sleep(10);
+        waitTicks++;
+    }
+
+    double gpuTime = qd.done ? (qd.endTime - qd.submitTime) : -1.0;
+
     // Cleanup
     wgpuCommandBufferRelease(commands);
     wgpuComputePassEncoderRelease(pass);
@@ -160,6 +181,7 @@ void run_test(const char* label, uint32_t gridX, uint32_t gridY) {
     std::cout << "  Grid: (" << gridX << "x" << gridY << ") | Threads: " << totalThreads << std::endl;
     std::cout << "  Loops/Thread: " << loops << std::endl;
     std::cout << "  CPU Dispatch Overhead: " << (t1 - t0) << " ms" << std::endl;
+    if (gpuTime >= 0.0) std::cout << "  Approx GPU Execution Time: " << gpuTime << " ms" << std::endl; else std::cout << "  GPU Execution Time: (timeout or unsupported)" << std::endl;
     print_divider();
 }
 
@@ -214,7 +236,16 @@ int main() {
         wgpuCommandEncoderRelease(encoder);
     }
     double t1 = emscripten_get_now();
-    std::cout << "  Repeated dispatch overhead: " << (t1 - t0) << " ms for 10000 dispatches" << std::endl;
+    std::cout << "  Repeated dispatch submission overhead: " << (t1 - t0) << " ms for 10000 dispatches" << std::endl;
+
+    // Measure when GPU actually finishes those submissions
+    struct QueueDoneR { double submitTime; double endTime; bool done; } qdr{ t1, 0.0, false };
+    wgpuQueueOnSubmittedWorkDone(queue, [](WGPUQueueWorkDoneStatus status, void* userdata){ QueueDoneR* d = (QueueDoneR*)userdata; d->endTime = emscripten_get_now(); d->done = true; }, &qdr);
+
+    int wait2 = 0;
+    while (!qdr.done && wait2 < 1000) { emscripten_sleep(5); wait2++; }
+    if (qdr.done) std::cout << "  Repeated dispatch GPU completion: " << (qdr.endTime - qdr.submitTime) << " ms" << std::endl; else std::cout << "  Repeated dispatch GPU completion: (timeout or unsupported)" << std::endl;
+
     print_divider();
 
     std::cout << "Benchmark complete." << std::endl;
