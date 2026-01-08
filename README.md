@@ -37,15 +37,15 @@ npm run bench
 npm start
 
 # Run specific benchmark categories
-node src/cli.js run --cpu          # CPU benchmarks only
-node src/cli.js run --memory       # Memory benchmarks only
-node src/cli.js run --compilation  # Compilation benchmarks only
+node backend/cli.js run --cpu          # CPU benchmarks only
+node backend/cli.js run --memory       # Memory benchmarks only
+node backend/cli.js run --compilation  # Compilation benchmarks only
 
 # Save results to file
-node src/cli.js run --output results.json
+node backend/cli.js run --output results.json
 
 # List available benchmarks
-node src/cli.js list
+node backend/cli.js list
 ```
 
 #### Web UI Mode
