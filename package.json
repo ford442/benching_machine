@@ -1,0 +1,46 @@
+{
+  "name": "benching_machine",
+  "version": "1.0.0",
+  "description": "A benchmarking tool comparing JavaScript, Rust, and WebAssembly performance",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/cli.js",
+    "bench": "node src/cli.js",
+    "web": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "echo \"No tests yet\" && exit 0"
+  },
+  "keywords": [
+    "benchmark",
+    "webassembly",
+    "rust",
+    "javascript",
+    "performance"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "benchmark": "^2.1.4",
+    "chalk": "^4.1.2",
+    "commander": "^11.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
