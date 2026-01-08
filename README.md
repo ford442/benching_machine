@@ -98,7 +98,7 @@ The current implementation uses 2D Canvas with notes for 3D expansion:
 
 ```
 benching_machine/
-├── src/
+├── backend/                    # CLI and benchmark logic
 │   ├── benchmarks/
 │   │   ├── cpu.js              # CPU benchmark module
 │   │   ├── memory.js           # Memory benchmark module
@@ -111,15 +111,15 @@ benching_machine/
 │   ├── utils/
 │   │   └── formatter.js        # Result formatting utilities
 │   └── cli.js                  # CLI runner
+├── src/                        # React app source
+│   ├── index.js                # React entry point
+│   ├── App.js                  # Main React component
+│   └── components/
+│       ├── Header.js           # Header component
+│       ├── BenchmarkRunner.js  # Benchmark controls
+│       └── HallwayVisualization.js  # Canvas visualization
 ├── public/
-│   ├── index.html              # HTML entry point
-│   └── src/
-│       ├── index.js            # React entry point
-│       ├── App.js              # Main React component
-│       └── components/
-│           ├── Header.js       # Header component
-│           ├── BenchmarkRunner.js    # Benchmark controls
-│           └── HallwayVisualization.js  # Canvas visualization
+│   └── index.html              # HTML entry point
 ├── package.json
 └── README.md
 ```

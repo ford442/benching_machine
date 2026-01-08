@@ -2,10 +2,10 @@
   "name": "benching_machine",
   "version": "1.0.0",
   "description": "A benchmarking tool comparing JavaScript, Rust, and WebAssembly performance",
-  "main": "src/index.js",
+  "main": "backend/cli.js",
   "scripts": {
-    "start": "node src/cli.js",
-    "bench": "node src/cli.js",
+    "start": "node backend/cli.js",
+    "bench": "node backend/cli.js",
     "web": "react-scripts start",
     "build": "react-scripts build",
     "test": "echo \"No tests yet\" && exit 0"
