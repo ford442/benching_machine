@@ -174,6 +174,29 @@ Benchmark results include:
 }
 ```
 
+## Bench API (server)
+
+This repository includes a small bench API you can run locally to execute configuration-based benchmarks and return results as JSON. The server is intentionally simple and returns mocked-but-consistent benchmark outputs for each configuration. Use it to wire the frontend to a centralized runner before implementing real platform binaries.
+
+- Start the server:
+
+```bash
+npm run serve
+```
+
+- Endpoints:
+  - GET /api/configurations — returns available configurations
+  - POST /api/run — JSON body { configs: ["id1","id2"] } — runs configurations sequentially and returns results
+
+To have the front-end call the server when running locally, set environment variables (create a .env):
+
+```
+REACT_APP_USE_BACKEND=true
+REACT_APP_BENCH_API=http://localhost:4000
+```
+
+This will make `BenchmarkRunner` POST to the bench API instead of using in-browser mocks.
+
 ## 🤝 Contributing
 
 Contributions welcome! Areas for expansion:

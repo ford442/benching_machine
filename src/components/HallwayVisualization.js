@@ -4,20 +4,18 @@ import './HallwayVisualization.css';
 function HallwayVisualization({ benchmarkData, isRunning }) {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
-  const [viewMode, setViewMode] = useState('2d'); // '2d' or 'perspective'
+  const [viewMode, setViewMode] = useState('perspective'); // Default to perspective for the "Hallway" feel
 
   // Animation constants
   const ANIMATION_SPEED = 50;
-  const WAVE_AMPLITUDE = 20;
+  const WAVE_AMPLITUDE = 15;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     let animationFrame = 0;
 
-    // Resize canvas to fill container
     const resizeCanvas = () => {
       const container = canvas.parentElement;
       canvas.width = container.clientWidth;
@@ -27,10 +25,19 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Animation loop
     const animate = () => {
       animationFrame++;
-      drawHallway(ctx, canvas.width, canvas.height, animationFrame, benchmarkData, isRunning, viewMode, ANIMATION_SPEED, WAVE_AMPLITUDE);
+      // If no data yet, provide default empty configs to draw empty racks
+      const dataToRender = benchmarkData || { 
+        configurations: [
+          { name: 'JavaScript', tests: [] },
+          { name: 'Rust + WASM', tests: [] },
+          { name: 'WASM Threads', tests: [] },
+          { name: 'WASM64', tests: [] }
+        ] 
+      };
+      
+      drawHallway(ctx, canvas.width, canvas.height, animationFrame, dataToRender, isRunning, viewMode, ANIMATION_SPEED, WAVE_AMPLITUDE);
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -38,11 +45,9 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
 
     return () => {
       window.removeEventListener('resize', resizeCanvas);
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [benchmarkData, isRunning, viewMode, ANIMATION_SPEED, WAVE_AMPLITUDE]);
+  }, [benchmarkData, isRunning, viewMode]);
 
   return (
     <div className="hallway-visualization">
@@ -51,241 +56,157 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
           className={`view-button ${viewMode === '2d' ? 'active' : ''}`}
           onClick={() => setViewMode('2d')}
         >
-          2D View
+          2D Overview
         </button>
         <button 
           className={`view-button ${viewMode === 'perspective' ? 'active' : ''}`}
           onClick={() => setViewMode('perspective')}
         >
-          Perspective View
+          Perspective Hallway
         </button>
-        <div className="future-note">
-          💡 3D view coming soon!
-        </div>
       </div>
       <canvas ref={canvasRef} className="hallway-canvas" />
     </div>
   );
 }
 
-// Drawing function for the hallway visualization
-function drawHallway(ctx, width, height, frame, benchmarkData, isRunning, viewMode, animationSpeed, waveAmplitude) {
-  // Clear canvas
+function drawHallway(ctx, width, height, frame, data, isRunning, viewMode, speed, waveAmp) {
   ctx.fillStyle = '#1a1a2e';
   ctx.fillRect(0, 0, width, height);
 
+  const configs = data.configurations;
+
   if (viewMode === 'perspective') {
-    drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunning, animationSpeed, waveAmplitude);
+    drawPerspective(ctx, width, height, frame, configs, isRunning, speed, waveAmp);
   } else {
-    draw2DHallway(ctx, width, height, frame, benchmarkData, isRunning);
+    draw2D(ctx, width, height, frame, configs, isRunning);
   }
 }
 
-function draw2DHallway(ctx, width, height, frame, benchmarkData, isRunning) {
-  const rackCount = 3; // CPU, Memory, Compilation
-  const rackWidth = Math.min(250, width / rackCount - 40);
-  const rackHeight = height - 150;
-  const spacing = (width - rackWidth * rackCount) / (rackCount + 1);
+function draw2D(ctx, width, height, frame, configs, isRunning) {
+  const rackCount = configs.length;
+  const rackWidth = Math.min(220, width / rackCount - 30);
+  const rackHeight = height - 120;
+  const totalWidth = (rackWidth * rackCount) + (20 * (rackCount - 1));
+  const startX = (width - totalWidth) / 2;
 
-  // Draw title
-  ctx.fillStyle = '#ffffff';
-  ctx.font = 'bold 24px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Server Rack Hallway - Benchmark Results', width / 2, 40);
-
-  const categories = ['cpu', 'memory', 'compilation'];
-  const categoryNames = ['CPU Benchmarks', 'Memory Benchmarks', 'Compilation Benchmarks'];
-  const categoryIcons = ['⚙️', '💾', '⏱️'];
-
-  categories.forEach((category, rackIndex) => {
-    const x = spacing + rackIndex * (rackWidth + spacing);
-    const y = 80;
-
-    // Draw rack frame (server cabinet)
-    drawRackFrame(ctx, x, y, rackWidth, rackHeight);
-
-    // Draw rack header
-    ctx.fillStyle = '#4a5568';
-    ctx.fillRect(x + 10, y + 10, rackWidth - 20, 50);
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 14px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(categoryIcons[rackIndex] + ' ' + categoryNames[rackIndex], x + rackWidth / 2, y + 40);
-
-    // Draw benchmark bars if data available
-    if (benchmarkData && benchmarkData.benchmarks[category]) {
-      const benchmarks = benchmarkData.benchmarks[category];
-      const barHeight = (rackHeight - 100) / benchmarks.length - 20;
-
-      benchmarks.forEach((benchmark, index) => {
-        const barY = y + 80 + index * (barHeight + 20);
-        drawBenchmarkBar(ctx, x + 20, barY, rackWidth - 40, barHeight, benchmark, frame);
-      });
-    } else if (isRunning) {
-      // Show loading animation
-      drawLoadingAnimation(ctx, x + rackWidth / 2, y + rackHeight / 2, frame);
-    } else {
-      // Show placeholder
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-      ctx.font = '14px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('No data - Run benchmarks', x + rackWidth / 2, y + rackHeight / 2);
-    }
-
-    // Add blinking LEDs
-    drawLEDs(ctx, x + rackWidth - 30, y + 15, frame, isRunning);
-  });
-}
-
-function drawPerspectiveHallway(ctx, width, height, frame, benchmarkData, isRunning, animationSpeed, waveAmplitude) {
-  // Draw perspective lines for depth
-  const vanishingPointX = width / 2;
-  const vanishingPointY = height / 3;
-
-  // Draw floor perspective lines
-  ctx.strokeStyle = 'rgba(102, 126, 234, 0.3)';
-  ctx.lineWidth = 2;
-  for (let i = 0; i < 5; i++) {
-    const y = height / 2 + i * 50;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(vanishingPointX, vanishingPointY);
-    ctx.moveTo(width, y);
-    ctx.lineTo(vanishingPointX, vanishingPointY);
-    ctx.stroke();
-  }
-
-  // Draw racks in perspective
-  const rackCount = 3;
-  const baseRackWidth = 200;
-  const depthFactor = 0.6;
-
-  for (let i = 0; i < rackCount; i++) {
-    const depth = 1 - (i * 0.25);
-    const rackWidth = baseRackWidth * depth;
-    const rackHeight = 300 * depth;
-    const x = vanishingPointX - rackWidth / 2 + (Math.sin(frame / animationSpeed) * waveAmplitude * (i - 1));
-    const y = vanishingPointY + i * 100;
-
-    // Draw rack with depth
-    drawRackFrame(ctx, x, y, rackWidth, rackHeight);
-
-    const categories = ['cpu', 'memory', 'compilation'];
-    const category = categories[i];
-    
-    if (benchmarkData && benchmarkData.benchmarks[category]) {
-      const benchmarks = benchmarkData.benchmarks[category];
-      const barCount = Math.min(3, benchmarks.length);
-      
-      for (let j = 0; j < barCount; j++) {
-        const barY = y + 40 + j * 40 * depth;
-        const barWidth = rackWidth - 20;
-        const barHeight = 25 * depth;
-        drawBenchmarkBar(ctx, x + 10, barY, barWidth, barHeight, benchmarks[j], frame, depth);
-      }
-    }
-  }
-
-  // Add perspective text
+  // Title
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 20px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('3D Hallway View (Preview)', width / 2, 30);
-  ctx.font = '14px sans-serif';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-  ctx.fillText('Future: Full 3D navigation with Three.js/WebGL', width / 2, 55);
+  ctx.fillText('Runtime Environment Comparison', width / 2, 40);
+
+  configs.forEach((config, i) => {
+    const x = startX + i * (rackWidth + 20);
+    const y = 80;
+
+    drawRack(ctx, x, y, rackWidth, rackHeight, config, frame, 1.0);
+  });
 }
 
-function drawRackFrame(ctx, x, y, width, height) {
-  // Main rack body
-  ctx.fillStyle = '#2d3748';
-  ctx.fillRect(x, y, width, height);
+function drawPerspective(ctx, width, height, frame, configs, isRunning, speed, waveAmp) {
+  const cx = width / 2;
+  const cy = height / 3; // Vanishing point
 
-  // Rack border
-  ctx.strokeStyle = '#4a5568';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(x, y, width, height);
-
-  // Ventilation slots
-  ctx.strokeStyle = '#1a202c';
+  // Floor lines
+  ctx.strokeStyle = 'rgba(102, 126, 234, 0.2)';
   ctx.lineWidth = 1;
-  for (let i = 0; i < height; i += 10) {
+  for (let i = 0; i < 8; i++) {
+    const y = height / 2 + i * 60;
     ctx.beginPath();
-    ctx.moveTo(x + 5, y + i);
-    ctx.lineTo(x + width - 5, y + i);
+    ctx.moveTo(0, y);
+    ctx.lineTo(cx, cy);
+    ctx.moveTo(width, y);
+    ctx.lineTo(cx, cy);
     ctx.stroke();
   }
-}
 
-function drawBenchmarkBar(ctx, x, y, width, height, benchmark, frame, opacity = 1) {
-  // Background
-  ctx.fillStyle = `rgba(74, 85, 104, ${opacity * 0.8})`;
-  ctx.fillRect(x, y, width, height);
+  const rackCount = configs.length;
+  const spacing = 180; 
+  
+  configs.forEach((config, i) => {
+    const offsetFromCenter = i - (rackCount - 1) / 2;
+    const depth = 1 - (Math.abs(offsetFromCenter) * 0.1); 
+    const scale = depth;
+    
+    const rackWidth = 220 * scale;
+    const rackHeight = (height - 200) * scale;
+    
+    const x = cx + (offsetFromCenter * 240 * scale) - (rackWidth / 2);
+    const y = cy + 100 * scale;
 
-  // Label
-  ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-  ctx.font = '11px sans-serif';
-  ctx.textAlign = 'left';
-  const label = benchmark.name.length > 30 ? benchmark.name.substring(0, 27) + '...' : benchmark.name;
-  ctx.fillText(label, x + 5, y + height / 2 - 8);
-
-  // Calculate bar width based on ops/sec
-  // Normalize to reasonable max value (will be capped at 100%)
-  const MAX_OPS_FOR_VISUALIZATION = 200000;
-  const normalizedValue = Math.min(benchmark.opsPerSec / MAX_OPS_FOR_VISUALIZATION, 1);
-  const barWidth = (width - 10) * normalizedValue;
-
-  // Animated gradient bar
-  const gradient = ctx.createLinearGradient(x + 5, y, x + 5 + barWidth, y);
-  const hue = (frame + benchmark.opsPerSec / 1000) % 360;
-  gradient.addColorStop(0, `hsla(${hue}, 70%, 60%, ${opacity})`);
-  gradient.addColorStop(1, `hsla(${hue + 60}, 70%, 60%, ${opacity})`);
-
-  ctx.fillStyle = gradient;
-  ctx.fillRect(x + 5, y + height / 2 + 2, barWidth, height / 2 - 7);
-
-  // Value text
-  ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
-  ctx.font = 'bold 10px sans-serif';
-  ctx.textAlign = 'right';
-  ctx.fillText(`${Math.round(benchmark.opsPerSec).toLocaleString()} ops/s`, x + width - 5, y + height - 5);
-}
-
-function drawLoadingAnimation(ctx, x, y, frame) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate((frame * 0.05) * Math.PI / 180);
-
-  ctx.strokeStyle = '#667eea';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.arc(0, 0, 30, 0, Math.PI * 1.5);
-  ctx.stroke();
-
-  ctx.restore();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = '14px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('Loading...', x, y + 50);
-}
-
-function drawLEDs(ctx, x, y, frame, isActive) {
-  const leds = [
-    { color: isActive ? '#00ff00' : '#003300', blink: true },
-    { color: '#0000ff', blink: false },
-    { color: '#ff0000', blink: false }
-  ];
-
-  leds.forEach((led, index) => {
-    const opacity = led.blink && Math.sin(frame / 10) > 0 ? 1 : 0.3;
-    ctx.fillStyle = led.color;
-    ctx.globalAlpha = opacity;
-    ctx.beginPath();
-    ctx.arc(x, y + index * 12, 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+    drawRack(ctx, x, y, rackWidth, rackHeight, config, frame, scale);
   });
+}
+
+function drawRack(ctx, x, y, width, height, config, frame, scale) {
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(x + 10 * scale, y + 10 * scale, width, height);
+
+  // Rack Body
+  ctx.fillStyle = '#2d3748';
+  ctx.fillRect(x, y, width, height);
+  
+  // Bezel / Frame
+  ctx.strokeStyle = config.color || '#4a5568';
+  ctx.lineWidth = 4 * scale;
+  ctx.strokeRect(x, y, width, height);
+
+  // Header
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+  ctx.fillRect(x, y, width, 50 * scale);
+  
+  ctx.fillStyle = config.color || '#fff';
+  ctx.font = `bold ${14 * scale}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.fillText(config.name, x + width / 2, y + 30 * scale);
+
+  // Benchmarks Bars
+  if (config.tests && config.tests.length > 0) {
+    const barHeight = 40 * scale;
+    const gap = 15 * scale;
+    const startY = y + 60 * scale;
+
+    config.tests.forEach((test, i) => {
+      const by = startY + i * (barHeight + gap);
+      
+      // Label
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = `${10 * scale}px sans-serif`;
+      ctx.textAlign = 'left';
+      ctx.fillText(test.name, x + 10 * scale, by - 5 * scale);
+
+      // Bar Background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x + 10 * scale, by, width - 20 * scale, barHeight);
+
+      // Value Bar
+      const pct = Math.min(test.opsPerSec / 300000, 1);
+      const barW = (width - 20 * scale) * pct;
+
+      // Animated Gradient
+      const grad = ctx.createLinearGradient(x, 0, x + width, 0);
+      const hue = (frame * 2 + i * 30) % 360;
+      grad.addColorStop(0, `hsla(${hue}, 70%, 50%, 0.8)`);
+      grad.addColorStop(1, `hsla(${hue + 40}, 70%, 60%, 0.8)`);
+      
+      ctx.fillStyle = grad;
+      ctx.fillRect(x + 10 * scale, by, barW, barHeight);
+
+      // Score Text
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'right';
+      ctx.font = `bold ${10 * scale}px monospace`;
+      ctx.fillText(Math.round(test.opsPerSec).toLocaleString(), x + width - 15 * scale, by + barHeight - 10 * scale);
+    });
+  } else {
+    // Empty state / Loading
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.font = `${12 * scale}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText("Waiting for data...", x + width/2, y + height/2);
+  }
 }
 
 export default HallwayVisualization;

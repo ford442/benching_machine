@@ -94,3 +94,35 @@
     flex: 1;
   }
 }
+
+/* Additions for vertical tech stack */
+.tech-stack-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tech-badge-row {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0 6px 6px 0;
+  transition: background 0.2s;
+}
+
+.tech-badge-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.badge-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.badge-desc {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-top: 2px;
+}
