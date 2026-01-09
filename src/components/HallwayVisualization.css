@@ -9,6 +9,24 @@
   padding: 20px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   min-height: 600px;
+  /* overflow is controlled via inline styles in JS, but scrollbar styles apply here */
+  scrollbar-width: thin;
+  scrollbar-color: #667eea rgba(0,0,0,0.3);
+}
+
+.hallway-visualization::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.hallway-visualization::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.3);
+  border-radius: 4px;
+}
+
+.hallway-visualization::-webkit-scrollbar-thumb {
+  background: #667eea;
+  border-radius: 4px;
 }
 
 .view-controls {
@@ -16,6 +34,7 @@
   gap: 10px;
   margin-bottom: 15px;
   align-items: center;
+  flex-shrink: 0; /* Prevent controls from shrinking when scrolling vertically if that ever happens */
 }
 
 .view-button {
@@ -49,10 +68,12 @@
 }
 
 .hallway-canvas {
-  flex: 1;
+  flex: 1; /* Take remaining space */
+  display: block;
   border-radius: 10px;
   background: #1a1a2e;
   cursor: crosshair;
+  /* Width/Height are set via JS */
 }
 
 @media (max-width: 768px) {
