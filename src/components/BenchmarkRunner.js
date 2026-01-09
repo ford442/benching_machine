@@ -271,6 +271,7 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
           <h3>Leaderboard</h3>
           <p style={{fontSize: '0.9rem', opacity: 0.8, marginBottom: '15px'}}>
             Racks will automatically rearrange themselves based on total operations per second.
+            Comparing standard web delivery methods against custom UTF-16 architectures and WebGPU.
           </p>
           <div className="tech-stack-vertical">
             {displayConfigs.map(c => (
