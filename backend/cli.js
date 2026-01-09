@@ -2,7 +2,7 @@
 
 const { program } = require('commander');
 const chalk = require('chalk');
-const { CPUBenchmark, MemoryBenchmark, CompilationBenchmark } = require('./benchmarks');
+const { CPUBenchmark, MemoryBenchmark, CompilationBenchmark, GPUBenchmark } = require('./benchmarks');
 const { formatResults, saveResults } = require('./utils/formatter');
 
 program
@@ -16,6 +16,7 @@ program
   .option('-c, --cpu', 'Run only CPU benchmarks')
   .option('-m, --memory', 'Run only memory benchmarks')
   .option('-t, --compilation', 'Run only compilation benchmarks')
+  .option('-g, --gpu', 'Run only GPU benchmarks (CPU implementations)')
   .option('-o, --output <file>', 'Save results to file')
   .action(async (options) => {
     console.log(chalk.blue.bold('\n🚀 Benching Machine - Performance Benchmark Suite\n'));
@@ -27,7 +28,7 @@ program
 
     try {
       // Determine which benchmarks to run
-      const runAll = !options.cpu && !options.memory && !options.compilation;
+      const runAll = !options.cpu && !options.memory && !options.compilation && !options.gpu;
 
       if (runAll || options.cpu) {
         console.log(chalk.yellow('⚙️  Running CPU benchmarks...\n'));
@@ -51,6 +52,14 @@ program
         const compilationResults = await compilationBench.run();
         results.benchmarks.compilation = compilationResults;
         formatResults('Compilation', compilationResults);
+      }
+
+      if (runAll || options.gpu) {
+        console.log(chalk.yellow('\n🎮 Running GPU benchmarks (CPU implementations)...\n'));
+        const gpuBench = new GPUBenchmark();
+        const gpuResults = await gpuBench.run();
+        results.benchmarks.gpu = gpuResults;
+        formatResults('GPU', gpuResults);
       }
 
       // Save results if output file specified
@@ -91,6 +100,13 @@ program
     console.log('  - Arrow vs Regular: Compare function types');
     console.log('  - Dynamic Function Creation: Runtime function generation');
     console.log('  - WASM Compilation: Simulate WebAssembly compilation');
+    
+    console.log(chalk.yellow('\nGPU Benchmarks:'));
+    console.log('  - Matrix Multiply CPU: 256x256 matrix multiplication (baseline)');
+    console.log('  - Particle Simulation CPU: 1000 particles simulation');
+    console.log('  - Image Convolution CPU: 512x512 convolution filter');
+    console.log('  - Ray Marching CPU: 256x256 ray marching');
+    console.log('  (Use web UI for WebGL/WebGPU accelerated versions)');
     
     console.log(chalk.gray('\nRun benchmarks with: npm run bench\n'));
   });

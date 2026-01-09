@@ -26,7 +26,8 @@ const configurations = [
   { id: 'wasm_threads', name: 'WASM + Threads', desc: 'Multithreaded via SharedArrayBuffer', color: '#e84393' },
   { id: 'wasm_max', name: 'WASM Max (OMP+SIMD)', desc: 'OpenMP Threads + SIMD128 Vectorization', color: '#ff0000' },
 
-  // NEW: WebGPU
+  // NEW: GPU Compute
+  { id: 'webgl_compute', name: 'WebGL Compute', desc: 'GPU acceleration via WebGL shaders', color: '#00d4ff' },
   { id: 'webgpu_compute', name: 'WebGPU Compute', desc: 'Massive parallel WGSL shaders', color: '#8e44ad' },
 
   { id: 'utf16_1ijs', name: 'UTF-16 1ijs + WASM', desc: 'Custom 1ijs format with WASM payload', color: '#e05a33' },
@@ -60,7 +61,8 @@ function getMultiplier(configId) {
     case 'wasm_threads': return 4.0;
     case 'wasm_max': return 5.5;
 
-    // NEW: Huge multiplier for supported tasks
+    // GPU: Huge multiplier for supported tasks
+    case 'webgl_compute': return 15.0;
     case 'webgpu_compute': return 25.0;
 
     case 'utf16_1ijs': return 2.6;
@@ -79,6 +81,7 @@ async function runConfig(configId) {
   if (configId === 'wasmedge_aot') loadScore = 200000;
   if (configId === 'js_closure') loadScore = 190000;
   if (configId === 'js_roadroller') loadScore = 50000;
+  if (configId === 'webgl_compute') loadScore = 100000; // Shader compilation
   if (configId === 'webgpu_compute') loadScore = 80000; // Slow shader compilation
 
   // Simulate runtime latency
@@ -86,12 +89,24 @@ async function runConfig(configId) {
   await new Promise(r => setTimeout(r, 800 + startupDelay + Math.random() * 800));
 
   return [
-    // WebGPU sucks at recursion (overhead), great at parallel math
-    generateResult(configId === 'webgpu_compute' ? 5000 : 120000 * m, 20000, 'Fibonacci (Recursive)'),
-    generateResult(90000 * m * (configId === 'js_bigint' ? 0.6 : (configId === 'webgpu_compute' ? 0.5 : 1)), 15000, 'Fibonacci (BigInt/i64)'),
+    // GPU benefits: recursion overhead, so lower score for pure GPU
+    generateResult(
+      (configId === 'webgl_compute' || configId === 'webgpu_compute') ? 5000 : 120000 * m, 
+      20000, 
+      'Fibonacci (Recursive)'
+    ),
+    generateResult(
+      90000 * m * (configId === 'js_bigint' ? 0.6 : ((configId === 'webgl_compute' || configId === 'webgpu_compute') ? 0.5 : 1)), 
+      15000, 
+      'Fibonacci (BigInt/i64)'
+    ),
 
-    // WebGPU shines here (Matrix Mult)
-    generateResult(45000 * (configId === 'webgpu_compute' ? 40.0 : m), 5000, 'Matrix Multiply'),
+    // GPU excels here (Matrix Mult)
+    generateResult(
+      45000 * ((configId === 'webgl_compute') ? 20.0 : (configId === 'webgpu_compute' ? 40.0 : m)), 
+      5000, 
+      'Matrix Multiply'
+    ),
 
     generateResult(45000 * (m * (supportsWasmThreads ? 1.8 : 0.5)), 8000, 'Matrix Multiply (WASM Threads)'),
     generateResult(60000 * (supportsOpenMP ? (m * 2.2) : (m * 0.4)), 10000, 'Matrix Multiply (OpenMP SIMD)'),
