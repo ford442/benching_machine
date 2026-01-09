@@ -322,50 +322,6 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
 
 export default BenchmarkRunner;
 
-// Test descriptions used in the UI for detailed explanations
-const testDetails = {
-  'Fibonacci (Recursive)': {
-    summary: 'Recursive Fibonacci to exercise call-stacks and integer math.',
-    details: 'A deep recursive implementation which stresses CPU-bound integer arithmetic and function-call overhead. Good for showing differences in BigInt vs native integer performance.',
-    tags: ['CPU']
-  },
-'Fibonacci (BigInt/i64)': {
-    summary: 'BigInt in JS vs i64 in WASM.',
-    details: 'Compares BigInt arithmetic (JS) against native 64-bit integer ops in WASM. BigInt often incurs additional overhead in JS engines.',
-    tags: ['CPU','Integer']
-  },
-  'Matrix Multiply': {
-    summary: 'Dense matrix multiply to measure FP throughput.',
-    details: 'Small matrix multiplication (10x10) that tests floating point pipelines; benefits from SIMD and compiler optimizations.',
-    tags: ['SIMD']
-  },
-  'Matrix Multiply (WASM Threads)': {
-    summary: 'Threaded matrix multiply for parallel speedup.',
-    details: 'Simulates a multithreaded implementation using WASM threads to split work across cores. Requires SharedArrayBuffer and COOP/COEP headers in the browser.',
-    tags: ['SIMD','Threads']
-  },
-  'Matrix Multiply (OpenMP SIMD)': {
-    summary: 'SIMD-optimized matrix multiply (OpenMP/C++).',
-    details: 'Represents a vectorized implementation compiled with OpenMP/SIMD intrinsics; typical for native builds or compiler-optimized WASM.',
-    tags: ['SIMD','OpenMP']
-  },
-  'Prime Check': {
-    summary: 'Naive primality test to stress integer ops and branching.',
-    details: 'Useful for evaluating integer performance and branch-heavy code. Not easily vectorized.',
-    tags: ['CPU']
-  },
-  'Parse/Load Time (Inv)': {
-    summary: 'Startup and load efficiency (higher is better).',
-    details: 'Empirical measure of download/decompress/initialization overhead. Roadroller shows smaller download size but high decompression cost; AOT compilation shows near-instant startup.',
-    tags: ['Startup','IO']
-  },
-  'Startup/Load Efficiency': {
-    summary: 'Combined download/decompress/startup speed.',
-    details: 'Higher is better; reflects how quickly a build becomes runnable in the browser or runtime.',
-    tags: ['Startup','IO']
-  }
-};
-
 // SVG icons for tags
 const getTagIcon = (tag) => {
   const commonProps = { width: 12, height: 12, viewBox: '0 0 24 24', fill: 'none', xmlns: 'http://www.w3.org/2000/svg' };
