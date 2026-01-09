@@ -18,7 +18,25 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
 
     const resizeCanvas = () => {
       const container = canvas.parentElement;
-      canvas.width = container.clientWidth;
+
+      // Determine how many racks we need to show
+      const configCount = (benchmarkData && benchmarkData.configurations) ? benchmarkData.configurations.length : 4;
+
+      if (viewMode === '2d') {
+        // 2D Mode: Enable Horizontal Scrolling
+        // We set a fixed minimum width per rack to ensure they don't get squished
+        const minRackWidth = 250;
+        const requiredWidth = configCount * minRackWidth + 100; // + margins
+
+        // Canvas width is max of container or required width (enabling scroll if required > container)
+        canvas.width = Math.max(container.clientWidth, requiredWidth);
+        canvas.style.width = `${canvas.width}px`; // Force CSS width to match logic
+      } else {
+        // Perspective Mode: "Squeeze" into view (Preview mode)
+        canvas.width = container.clientWidth;
+        canvas.style.width = '100%';
+      }
+
       canvas.height = container.clientHeight;
     };
 
@@ -33,7 +51,7 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
           { name: 'JavaScript', tests: [] },
           { name: 'Rust + WASM', tests: [] },
           { name: 'WASM Threads', tests: [] },
-          { name: 'WASM64', tests: [] }
+          { name: 'WebGPU', tests: [] }
         ] 
       };
       
@@ -50,7 +68,7 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
   }, [benchmarkData, isRunning, viewMode]);
 
   return (
-    <div className="hallway-visualization">
+    <div className="hallway-visualization" style={{overflowX: viewMode === '2d' ? 'auto' : 'hidden'}}>
       <div className="view-controls">
         <button 
           className={`view-button ${viewMode === '2d' ? 'active' : ''}`}
@@ -85,15 +103,21 @@ function drawHallway(ctx, width, height, frame, data, isRunning, viewMode, speed
 
 function draw2D(ctx, width, height, frame, configs, isRunning) {
   const rackCount = configs.length;
+  // Use a fixed reasonable width, capped only if we have few racks to avoid giant ones
   const rackWidth = Math.min(220, width / rackCount - 30);
   const rackHeight = height - 120;
+
+  // Calculate total width of all racks
   const totalWidth = (rackWidth * rackCount) + (20 * (rackCount - 1));
-  const startX = (width - totalWidth) / 2;
+
+  // Center if it fits, otherwise start with a margin
+  const startX = totalWidth < width ? (width - totalWidth) / 2 : 50;
 
   // Title
   ctx.fillStyle = '#ffffff';
   ctx.font = 'bold 20px sans-serif';
   ctx.textAlign = 'center';
+  // Draw title at center of visible area or center of canvas? Center of canvas is safer.
   ctx.fillText('Runtime Environment Comparison', width / 2, 40);
 
   configs.forEach((config, i) => {
@@ -122,12 +146,14 @@ function drawPerspective(ctx, width, height, frame, configs, isRunning, speed, w
   }
 
   const rackCount = configs.length;
+  // Squeeze logic: reduce spacing/scale based on count to fit in view
   const spacing = 180; 
   
   configs.forEach((config, i) => {
     const offsetFromCenter = i - (rackCount - 1) / 2;
+    // Simple depth fake
     const depth = 1 - (Math.abs(offsetFromCenter) * 0.1); 
-    const scale = depth;
+    const scale = Math.max(0.4, depth); // Prevent them from vanishing too much
     
     const rackWidth = 220 * scale;
     const rackHeight = (height - 200) * scale;
