@@ -126,3 +126,81 @@
   color: rgba(255, 255, 255, 0.6);
   margin-top: 2px;
 }
+
+.tech-badge-row.selected {
+  background: rgba(102, 126, 234, 0.15);
+  border-left-color: rgba(102, 126, 234, 1);
+}
+
+.details-panel {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+.details-panel h4 {
+  margin: 0 0 8px 0;
+  font-size: 1.05rem;
+}
+
+.test-item {
+  padding: 8px 6px;
+  border-top: 1px solid rgba(255,255,255,0.02);
+}
+
+.test-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.test-name {
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+}
+
+.test-name:hover { text-decoration: underline; }
+
+.test-summary {
+  color: rgba(255,255,255,0.75);
+  font-size: 0.85rem;
+}
+
+.test-desc {
+  margin-top: 6px;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Badges for test features */
+.test-badges {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #fff;
+}
+
+.tag-simd { background: #ffb703; } /* yellow/orange */
+.tag-threads { background: #2ec4b6; } /* teal */
+.tag-io { background: #3da5ff; } /* blue */
+.tag-startup { background: #ff6b6b; } /* red */
+.tag-cpu { background: #6f42c1; } /* purple */
+.tag-integer { background: #f08a24; } /* orange */
+.tag-openmp { background: #82c0ff; } /* light blue */
+
+.tag-badge svg { width: 12px; height: 12px; display: block; fill: #fff; }

@@ -11,7 +11,10 @@ const configurations = [
   { id: 'wasm_simd', name: 'WASM + SIMD128', desc: 'Parallel vector operations enabled', color: '#2ecc71' },
   { id: 'wasm_threads', name: 'WASM + Threads', desc: 'Multithreaded via SharedArrayBuffer', color: '#e84393' },
   { id: 'utf16_1ijs', name: 'UTF-16 1ijs + WASM', desc: 'Custom 1ijs format with WASM payload', color: '#e05a33' },
-  { id: 'utf16_html', name: 'UTF-16 HTML Loader', desc: 'Full UTF-16 HTML document loading 1ijs', color: '#c0392b' }
+  { id: 'utf16_html', name: 'UTF-16 HTML Loader', desc: 'Full UTF-16 HTML document loading 1ijs', color: '#c0392b' },
+  { id: 'wasm_asc', name: 'AssemblyScript (asc)', desc: 'AssemblyScript build (asc)', color: '#007acc' },
+  { id: 'wasm_asc_opt', name: 'AssemblyScript + wasm-opt', desc: 'asc + wasm-opt (Binaryen) O4', color: '#0984e3' },
+  { id: 'wasm_asc_aot', name: 'AssemblyScript + WasmEdge AOT', desc: 'AOT via WasmEdge', color: '#00cec9' }
 ];
 
 const generateResult = (baseScore, variance, name) => ({
@@ -34,13 +37,16 @@ function getMultiplier(configId) {
     case 'wasm_threads': return 4.0;
     case 'utf16_1ijs': return 2.6;
     case 'utf16_html': return 2.7;
+    case 'wasm_asc': return 2.3;
+    case 'wasm_asc_opt': return 2.8;
+    case 'wasm_asc_aot': return 4.5;
     default: return 1.0;
   }
 }
 
 async function runConfig(configId) {
   const m = getMultiplier(configId);
-  const supportsWasmThreads = ['js_wasm_std','utf16_1ijs','utf16_html','wasm_threads','wasm_simd','wasm_rust','wasm_as','wasm_cheerp'].includes(configId);
+  const supportsWasmThreads = ['js_wasm_std','utf16_1ijs','utf16_html','wasm_threads','wasm_simd','wasm_rust','wasm_as','wasm_cheerp','wasm_asc','wasm_asc_opt','wasm_asc_aot'].includes(configId);
   const supportsOpenMP = ['utf16_1ijs','utf16_html','wasm_rust','wasm_cheerp'].includes(configId);
 
   // Simulate runtime latency

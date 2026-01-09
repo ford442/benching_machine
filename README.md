@@ -151,6 +151,12 @@ WASM benchmarks can be added by:
 3. Add loading utilities in the benchmark runner
 4. Compare performance with JavaScript implementations
 
+Note: This repository includes an AssemblyScript physics example at `backend/experiments/physics`. You can build it (if you have the tools installed) with:
+
+```bash
+npm run build:physics
+```
+
 ## 📈 Output Format
 
 Benchmark results include:
