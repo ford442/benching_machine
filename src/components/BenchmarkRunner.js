@@ -74,6 +74,12 @@ const configurations = [
     color: '#e84393' // Pink/Magenta for complexity
   },
   {
+    id: 'wasm_max',
+    name: 'WASM Max (OMP+SIMD)',
+    desc: 'OpenMP Threads + SIMD128 Vectorization',
+    color: '#ff0000' // Red/Gold
+  },
+  {
     id: 'webgpu_compute',
     name: 'WebGPU Compute',
     desc: 'Massive parallel float operations',
@@ -124,6 +130,7 @@ const mockRunConfig = (configId) => new Promise((resolve) => {
     case 'wasm_as': m = 2.3; break;
     case 'wasm_simd': m = 3.5; break;
     case 'wasm_threads': m = 4.0; break;
+    case 'wasm_max': m = 5.5; break; // Highest Multiplier (CPU)
     case 'webgpu_compute':
       m = 20.0; // Huge throughput potential
       startupDelay = 800; // Initialization overhead
@@ -139,8 +146,8 @@ const mockRunConfig = (configId) => new Promise((resolve) => {
     default: m = 1.0;
   }
   
-  const supportsWasmThreads = ['js_wasm_std', 'utf16_1ijs', 'utf16_html', 'wasm_threads', 'wasm_simd', 'wasm_rust', 'wasm_as', 'wasm_cheerp'].includes(configId);
-  const supportsOpenMP = ['utf16_1ijs', 'utf16_html', 'wasm_rust', 'wasm_cheerp'].includes(configId);
+  const supportsWasmThreads = ['js_wasm_std', 'utf16_1ijs', 'utf16_html', 'wasm_threads', 'wasm_simd', 'wasm_rust', 'wasm_as', 'wasm_cheerp', 'wasm_max'].includes(configId);
+  const supportsOpenMP = ['utf16_1ijs', 'utf16_html', 'wasm_rust', 'wasm_cheerp', 'wasm_max'].includes(configId);
   const isWebGpu = configId === 'webgpu_compute';
 
   setTimeout(() => resolve([
@@ -162,8 +169,17 @@ const mockRunConfig = (configId) => new Promise((resolve) => {
   ]), 1500 + startupDelay + Math.random() * 1000);
 });
 
+// Helper to calculate total score for sorting
+const calculateScore = (config) => {
+  if (!config.tests || config.tests.length === 0) return 0;
+  return config.tests.reduce((acc, test) => acc + test.opsPerSec, 0);
+};
+
 function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
   const [progress, setProgress] = useState('');
+
+  // Local state for displaying sorted results
+  const [displayConfigs, setDisplayConfigs] = useState(configurations);
 
   const runBenchmarks = async () => {
     const useBackend = process.env.REACT_APP_USE_BACKEND === 'true';
@@ -171,6 +187,19 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
 
     setIsRunning(true);
     setProgress('Initializing configurations...');
+
+    // Initial state: reset tests
+    let currentResults = configurations.map(c => ({ ...c, tests: [] }));
+
+    // Sort helper
+    const updateAndSort = (list) => {
+        const sorted = [...list].sort((a, b) => calculateScore(b) - calculateScore(a));
+        setDisplayConfigs(sorted);
+        setBenchmarkData({ timestamp: new Date().toISOString(), configurations: sorted });
+    };
+
+    // Render initial state
+    updateAndSort(currentResults);
 
     if (useBackend) {
       try {
@@ -182,7 +211,10 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
         });
         if (!resp.ok) throw new Error('Backend error: ' + resp.statusText);
         const results = await resp.json();
-        setBenchmarkData(results);
+
+        // Backend results need to be sorted locally for display
+        updateAndSort(results.configurations);
+
         setProgress('All benchmarking routes complete (backend).');
       } catch (error) {
         setProgress('Error: ' + error.message);
@@ -193,21 +225,23 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
       return;
     }
 
-    // Fallback to client-side mock runs
-    const newResults = {
-      timestamp: new Date().toISOString(),
-      configurations: []
-    };
-
+    // Fallback to client-side mock runs (Race Mode)
     try {
       for (const config of configurations) {
         setProgress(`Benchmarking Route: ${config.name}...`);
         const results = await mockRunConfig(config.id);
-        newResults.configurations.push({ ...config, tests: results });
-        setBenchmarkData({ ...newResults });
+
+        // Update result in local tracking array
+        const idx = currentResults.findIndex(c => c.id === config.id);
+        if (idx !== -1) {
+            currentResults[idx] = { ...currentResults[idx], tests: results };
+        }
+
+        // Update UI (Leaderboard)
+        updateAndSort(currentResults);
       }
 
-      setProgress('All benchmarking routes complete!');
+      setProgress('Race complete! Racks sorted by total performance.');
     } catch (error) {
       setProgress('Error: ' + error.message);
     } finally {
@@ -218,13 +252,13 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
   return (
     <div className="benchmark-runner">
       <div className="runner-card">
-        <h2>Comparison Routes</h2>
+        <h2>Performance Race</h2>
         <button 
           className="run-button"
           onClick={runBenchmarks}
           disabled={isRunning}
         >
-          {isRunning ? '⏳ Running Routes...' : '▶ Run Route Comparison'}
+          {isRunning ? '⏳ Racing...' : '▶ Start Race'}
         </button>
         
         {progress && (
@@ -234,12 +268,13 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
         )}
 
         <div className="info-section">
-          <h3>Active Routes</h3>
+          <h3>Leaderboard</h3>
           <p style={{fontSize: '0.9rem', opacity: 0.8, marginBottom: '15px'}}>
+            Racks will automatically rearrange themselves based on total operations per second.
             Comparing standard web delivery methods against custom UTF-16 architectures and WebGPU.
           </p>
           <div className="tech-stack-vertical">
-            {configurations.map(c => (
+            {displayConfigs.map(c => (
               <div key={c.id} className="tech-badge-row" style={{borderLeft: `3px solid ${c.color}`}}>
                 <span className="badge-name">{c.name}</span>
                 <span className="badge-desc">{c.desc}</span>

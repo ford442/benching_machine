@@ -18,7 +18,7 @@ Currently, we have a "Spawning Phase" implemented:
 
 ### A. The "Work Stealing" Pattern
 **Goal**: Prevent the "slowest agent" problem where one complex frame holds up the visualizer.
-- **Design**: 
+- **Design**:
     - A global `std::atomic<int> work_queue_head` in Shared Memory.
     - Agents grab a batch of work (e.g., "Compute chunk 100-200") via `fetch_add`.
     - **Expansion**: Implement a Lock-Free Queue in C++ that both the Main Thread (Producer) and Agents (Consumers) can access.
