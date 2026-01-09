@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './BenchmarkRunner.css';
 
 // 1. Define the Master List of "Machines"
@@ -30,10 +30,11 @@ const configurations = [
   { id: 'wasm_threads', name: 'WASM + Threads', desc: 'Multithreaded via SharedArrayBuffer', color: '#e84393' },
   { id: 'wasm_max', name: 'WASM Max (OMP+SIMD)', desc: 'OpenMP Threads + SIMD128 Vectorization', color: '#ff0000' },
 
-  // NEW: WebGPU
-  { id: 'webgpu_compute', name: 'WebGPU Compute', desc: 'Massive parallel WGSL shaders', color: '#8e44ad' },
+  // --- F. GPU Compute (NEW) ---
+  { id: 'webgl_compute', name: 'WebGL Compute', desc: 'GPU acceleration via WebGL shaders', color: '#00d4ff' },
+  { id: 'webgpu_compute', name: 'WebGPU Compute', desc: 'Massive parallel WGSL compute shaders', color: '#8e44ad' },
 
-  // --- F. Custom Architecture ---
+  // --- G. Custom Architecture ---
   { id: 'utf16_1ijs', name: 'UTF-16 1ijs + WASM', desc: 'Custom 1ijs format with WASM payload', color: '#e05a33' },
   { id: 'utf16_html', name: 'UTF-16 HTML Loader', desc: 'Full UTF-16 HTML document loading 1ijs', color: '#c0392b' }
 ];
@@ -51,67 +52,170 @@ const generateResult = (baseScore, variance, name) => ({
   stats: { mean: 0.00001, deviation: 0.000001, margin: 2.0 }
 });
 
-const mockRunConfig = (configId) => new Promise((resolve) => {
-  let m = 1.0;
-  let startupDelay = 0;
-  let loadScore = 150000; // Baseline load score
-
-  switch (configId) {
-    // Baseline
-    case 'js_inline': m = 1.0; break;
-    case 'js_external': m = 1.05; break;
-    case 'js_wasm_std': m = 2.5; break;
-
-    // JS Optimizers
-    case 'js_terser': m = 1.05; loadScore = 180000; break;
-    case 'js_closure': m = 1.4; loadScore = 190000; break;
-    case 'js_roadroller': m = 1.0; loadScore = 50000; break; // Slow unpacking
-
-    // Data & Compilers
-    case 'js_bigint': m = 0.8; break;
-    case 'wasm_i64': m = 2.8; break;
-    case 'wasm_rust': m = 2.5; break;
-    case 'wasm_cheerp': m = 2.45; break;
-    case 'wasm_as': m = 2.3; break;
-
-    // WASM Optimizers
-    case 'wasm_opt': m = 2.8; loadScore = 170000; break;
-    case 'wasmedge_aot': m = 4.5; loadScore = 200000; break;
-    case 'wasm_asc_opt': m = 2.8; loadScore = 170000; break;
-
-    // Hardware
-    case 'wasm_simd': m = 3.5; break;
-    case 'wasm_threads': m = 4.0; break;
-    case 'wasm_max': m = 5.5; break;
-
-    // WebGPU
-    case 'webgpu_compute': m = 25.0; loadScore = 80000; break;
-
-    // Custom
-    case 'utf16_1ijs': m = 2.6; startupDelay = 50; break;
-    case 'utf16_html': m = 2.7; startupDelay = 100; break;
-    default: m = 1.0;
+const mockRunConfig = async (configId) => {
+  // For GPU configurations, run real benchmarks
+  if (configId === 'webgl_compute') {
+    try {
+      if (window.GPUBenchmarkRunner) {
+        const runner = new window.GPUBenchmarkRunner();
+        const webglResults = await runner.runWebGLBenchmarks();
+        return webglResults.map(r => ({
+          name: r.name,
+          opsPerSec: Math.round(r.opsPerSec || 0),
+          stats: { mean: r.timeMs || 0, deviation: 0, margin: 0 }
+        }));
+      }
+    } catch (e) {
+      console.error('WebGL benchmark failed:', e);
+    }
   }
   
-  const supportsWasmThreads = ['js_wasm_std', 'utf16_1ijs', 'utf16_html', 'wasm_threads', 'wasm_simd', 'wasm_rust', 'wasm_as', 'wasm_cheerp', 'wasm_max'].includes(configId);
-  const supportsOpenMP = ['utf16_1ijs', 'utf16_html', 'wasm_rust', 'wasm_cheerp', 'wasm_max'].includes(configId);
+  if (configId === 'webgpu_compute') {
+    try {
+      if (window.GPUBenchmarkRunner) {
+        const runner = new window.GPUBenchmarkRunner();
+        const webgpuResults = await runner.runWebGPUBenchmarks();
+        return webgpuResults.map(r => ({
+          name: r.name,
+          opsPerSec: Math.round(r.opsPerSec || 0),
+          stats: { mean: r.timeMs || 0, deviation: 0, margin: 0 }
+        }));
+      }
+    } catch (e) {
+      console.error('WebGPU benchmark failed:', e);
+    }
+  }
 
-  setTimeout(() => resolve([
-    generateResult(configId === 'webgpu_compute' ? 5000 : 120000 * m, 20000, 'Fibonacci (Recursive)'),
-    generateResult(90000 * m * (configId === 'js_bigint' ? 0.6 : (configId === 'webgpu_compute' ? 0.5 : 1)), 15000, 'Fibonacci (BigInt/i64)'),
+  // Fallback to mock data for other configurations
+  return new Promise((resolve) => {
+    let m = 1.0;
+    let startupDelay = 0;
+    let loadScore = 150000; // Baseline load score
 
-    generateResult(45000 * (configId === 'webgpu_compute' ? 40.0 : m), 5000, 'Matrix Multiply'),
+    switch (configId) {
+      // Baseline
+      case 'js_inline': m = 1.0; break;
+      case 'js_external': m = 1.05; break;
+      case 'js_wasm_std': m = 2.5; break;
 
-    generateResult(45000 * (m * (supportsWasmThreads ? 1.8 : 0.5)), 8000, 'Matrix Multiply (WASM Threads)'),
-    generateResult(60000 * (supportsOpenMP ? (m * 2.2) : (m * 0.4)), 10000, 'Matrix Multiply (OpenMP SIMD)'),
-    generateResult(85000 * m, 10000, 'Prime Check'),
-    generateResult(loadScore, 10000, 'Startup/Load Efficiency')
-  ]), 800 + startupDelay + Math.random() * 500);
-});
+      // JS Optimizers
+      case 'js_terser': m = 1.05; loadScore = 180000; break;
+      case 'js_closure': m = 1.4; loadScore = 190000; break;
+      case 'js_roadroller': m = 1.0; loadScore = 50000; break; // Slow unpacking
+
+      // Data & Compilers
+      case 'js_bigint': m = 0.8; break;
+      case 'wasm_i64': m = 2.8; break;
+      case 'wasm_rust': m = 2.5; break;
+      case 'wasm_cheerp': m = 2.45; break;
+      case 'wasm_as': m = 2.3; break;
+
+      // WASM Optimizers
+      case 'wasm_opt': m = 2.8; loadScore = 170000; break;
+      case 'wasmedge_aot': m = 4.5; loadScore = 200000; break;
+      case 'wasm_asc_opt': m = 2.8; loadScore = 170000; break;
+
+      // Hardware
+      case 'wasm_simd': m = 3.5; break;
+      case 'wasm_threads': m = 4.0; break;
+      case 'wasm_max': m = 5.5; break;
+
+      // GPU (fallback mocked values)
+      case 'webgl_compute': m = 15.0; loadScore = 100000; break;
+      case 'webgpu_compute': m = 25.0; loadScore = 80000; break;
+
+      // Custom
+      case 'utf16_1ijs': m = 2.6; startupDelay = 50; break;
+      case 'utf16_html': m = 2.7; startupDelay = 100; break;
+      default: m = 1.0;
+    }
+    
+    const supportsWasmThreads = ['js_wasm_std', 'utf16_1ijs', 'utf16_html', 'wasm_threads', 'wasm_simd', 'wasm_rust', 'wasm_as', 'wasm_cheerp', 'wasm_max'].includes(configId);
+    const supportsOpenMP = ['utf16_1ijs', 'utf16_html', 'wasm_rust', 'wasm_cheerp', 'wasm_max'].includes(configId);
+    const isGPU = ['webgl_compute', 'webgpu_compute'].includes(configId);
+
+    setTimeout(() => resolve([
+      generateResult(isGPU ? 5000 : 120000 * m, 20000, 'Fibonacci (Recursive)'),
+      generateResult(90000 * m * (configId === 'js_bigint' ? 0.6 : (isGPU ? 0.5 : 1)), 15000, 'Fibonacci (BigInt/i64)'),
+
+      generateResult(45000 * (isGPU ? 40.0 : m), 5000, 'Matrix Multiply'),
+
+      generateResult(45000 * (m * (supportsWasmThreads ? 1.8 : 0.5)), 8000, 'Matrix Multiply (WASM Threads)'),
+      generateResult(60000 * (supportsOpenMP ? (m * 2.2) : (m * 0.4)), 10000, 'Matrix Multiply (OpenMP SIMD)'),
+      generateResult(85000 * m, 10000, 'Prime Check'),
+      generateResult(loadScore, 10000, 'Startup/Load Efficiency')
+    ]), 800 + startupDelay + Math.random() * 500);
+  });
+};
 
 function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
   const [progress, setProgress] = useState('');
   const [selectedConfigId, setSelectedConfigId] = useState(null);
+  const [gpuSupport, setGpuSupport] = useState({ webgl: true, webgpu: false });
+
+  useEffect(() => {
+    // Check GPU support
+    const checkGPUSupport = async () => {
+      const webglSupported = !!(document.createElement('canvas').getContext('webgl2') || 
+                                document.createElement('canvas').getContext('webgl'));
+      let webgpuSupported = false;
+      if (navigator.gpu) {
+        try {
+          const adapter = await navigator.gpu.requestAdapter();
+          webgpuSupported = !!adapter;
+        } catch (e) {
+          webgpuSupported = false;
+        }
+      }
+      setGpuSupport({ webgl: webglSupported, webgpu: webgpuSupported });
+    };
+    checkGPUSupport();
+  }, []);
+
+  const runGPUBenchmarks = async () => {
+    setIsRunning(true);
+    setProgress('Running GPU benchmarks...');
+
+    const gpuConfigs = configurations.filter(c => 
+      c.id === 'webgl_compute' || c.id === 'webgpu_compute'
+    );
+    
+    let currentResults = gpuConfigs.map(c => ({ ...c, tests: [] }));
+
+    const updateState = (updatedList) => {
+      const sorted = [...updatedList].sort((a, b) => {
+        const scoreA = calculateScore(a);
+        const scoreB = calculateScore(b);
+        return scoreB - scoreA;
+      });
+
+      setBenchmarkData({
+        timestamp: new Date().toISOString(),
+        configurations: sorted
+      });
+      return updatedList;
+    };
+
+    updateState(currentResults);
+
+    try {
+      for (let i = 0; i < currentResults.length; i++) {
+        const config = currentResults[i];
+        setProgress(`Running ${config.name} benchmarks...`);
+
+        const results = await mockRunConfig(config.id);
+
+        currentResults[i] = { ...config, tests: results };
+        updateState(currentResults);
+      }
+
+      setProgress('GPU benchmarks complete!');
+    } catch (error) {
+      setProgress('Error: ' + error.message);
+    } finally {
+      setIsRunning(false);
+    }
+  };
 
   const runBenchmarks = async () => {
     setIsRunning(true);
@@ -167,8 +271,28 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
         >
           {isRunning ? '🏎️ Racing...' : '▶ Run Full Suite'}
         </button>
+        <button 
+          className="run-button"
+          onClick={runGPUBenchmarks}
+          disabled={isRunning}
+          style={{ marginLeft: '10px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+        >
+          {isRunning ? '🎮 Testing...' : '🎮 GPU Benchmarks'}
+        </button>
         
         {progress && <div className="progress-status">{progress}</div>}
+
+        {(gpuSupport.webgl || gpuSupport.webgpu) && (
+          <div style={{ 
+            fontSize: '0.85rem', 
+            marginTop: '10px', 
+            padding: '8px', 
+            background: 'rgba(100, 200, 100, 0.1)',
+            borderRadius: '4px'
+          }}>
+            GPU Support: {gpuSupport.webgl && '✓ WebGL'} {gpuSupport.webgpu && '✓ WebGPU'}
+          </div>
+        )}
 
         <div className="info-section">
           <h3>The Racks</h3>
