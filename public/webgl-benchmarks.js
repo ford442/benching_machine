@@ -356,3 +356,8 @@ class WebGLBenchmarks {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = WebGLBenchmarks;
 }
+
+// Make available globally for React components
+if (typeof window !== 'undefined') {
+  window.WebGLBenchmarks = WebGLBenchmarks;
+}

@@ -4,7 +4,8 @@ A comprehensive benchmarking tool for comparing performance across JavaScript, R
 
 ## ✨ Features
 
-- **Modular Benchmarks**: CPU, Memory, and Compilation time benchmarks
+- **Modular Benchmarks**: CPU, Memory, Compilation, and GPU benchmarks
+- **GPU Acceleration**: WebGL and WebGPU compute shader benchmarks
 - **Multiple Technologies**: JavaScript (with Rust and WASM stubs for future expansion)
 - **CLI Runner**: Command-line interface for running benchmarks
 - **Interactive Web UI**: React-based visualization with animated server rack hallway
@@ -40,6 +41,7 @@ npm start
 node backend/cli.js run --cpu          # CPU benchmarks only
 node backend/cli.js run --memory       # Memory benchmarks only
 node backend/cli.js run --compilation  # Compilation benchmarks only
+node backend/cli.js run --gpu          # GPU benchmarks (CPU implementations)
 
 # Save results to file
 node backend/cli.js run --output results.json
@@ -76,6 +78,14 @@ Then open your browser to `http://localhost:3000` to see the interactive hallway
 - **Dynamic Function Creation**: Runtime function generation
 - **WASM Compilation**: Simulated WebAssembly compilation
 
+### GPU Benchmarks
+- **Matrix Multiplication**: 256x256 matrix multiply (WebGL/WebGPU/CPU)
+- **Particle Simulation**: 10,000 particle physics simulation
+- **Image Processing**: 512x512 convolution filter (edge detection)
+- **Ray Marching**: 256x256 sphere ray marching (50 steps)
+
+**Note**: GPU benchmarks use hardware-accelerated WebGL/WebGPU in the browser, and CPU implementations in CLI mode for baseline comparison.
+
 ## 🎨 Visualization
 
 The web UI features an immersive "hallway of rack computers" visualization:
@@ -85,6 +95,15 @@ The web UI features an immersive "hallway of rack computers" visualization:
 - **Live Updates**: Real-time animated bars showing operations per second
 - **Color-coded Results**: Performance metrics with gradient animations
 - **Blinking LEDs**: Visual indicators for active benchmarks
+- **GPU Racks**: Dedicated visualization for WebGL and WebGPU compute benchmarks
+
+### GPU Benchmark Button
+
+The web UI includes a dedicated "🎮 GPU Benchmarks" button that:
+- Runs only WebGL and WebGPU benchmarks
+- Displays GPU support status (WebGL/WebGPU availability)
+- Shows real-time performance comparisons
+- Highlights massive performance gains for parallel workloads
 
 ### Future 3D Expansion
 
@@ -103,6 +122,8 @@ benching_machine/
 │   │   ├── cpu.js              # CPU benchmark module
 │   │   ├── memory.js           # Memory benchmark module
 │   │   ├── compilation.js      # Compilation benchmark module
+│   │   ├── gpu.js              # GPU benchmark module (CPU implementations)
+│   │   ├── configs.js          # Configuration-based benchmarks
 │   │   ├── index.js            # Benchmark exports
 │   │   ├── rust/              # Rust benchmarks (stub)
 │   │   │   └── README.md      # Rust setup instructions
@@ -110,7 +131,8 @@ benching_machine/
 │   │       └── README.md      # WASM setup instructions
 │   ├── utils/
 │   │   └── formatter.js        # Result formatting utilities
-│   └── cli.js                  # CLI runner
+│   ├── cli.js                  # CLI runner
+│   └── server.js               # Benchmark API server
 ├── src/                        # React app source
 │   ├── index.js                # React entry point
 │   ├── App.js                  # Main React component
@@ -119,7 +141,10 @@ benching_machine/
 │       ├── BenchmarkRunner.js  # Benchmark controls
 │       └── HallwayVisualization.js  # Canvas visualization
 ├── public/
-│   └── index.html              # HTML entry point
+│   ├── index.html              # HTML entry point
+│   ├── webgl-benchmarks.js     # WebGL GPU benchmarks
+│   ├── webgpu-benchmarks.js    # WebGPU compute benchmarks
+│   └── gpu-benchmark-runner.js # GPU benchmark coordinator
 ├── package.json
 └── README.md
 ```
@@ -131,6 +156,50 @@ benching_machine/
 - **Benchmarking**: Benchmark.js
 - **Styling**: CSS3 with modern effects (backdrop-filter, gradients)
 - **Future**: Three.js/WebGL for 3D visualization
+
+## 🎮 GPU Benchmarks
+
+The benchmarking suite now includes comprehensive GPU acceleration tests comparing WebGL, WebGPU, and CPU implementations.
+
+### Supported GPU APIs
+
+- **WebGL 2.0**: Fragment shader-based compute for matrix operations, particle simulations, and image processing
+- **WebGPU**: Modern compute shader API using WGSL for massive parallelism
+
+### GPU Benchmark Tasks
+
+1. **Matrix Multiplication** (256×256)
+   - WebGL: Texture-based computation
+   - WebGPU: Compute shader with workgroups
+   - CPU: Baseline triple-nested loop
+
+2. **Particle Simulation** (10,000 particles, 10 steps)
+   - WebGL: Point sprite rendering with shader physics
+   - WebGPU: Compute shader particle updates
+   - CPU: Sequential particle physics
+
+3. **Image Processing** (512×512 Sobel edge detection)
+   - WebGL: Fragment shader convolution
+   - WebGPU: Compute shader 2D processing
+   - CPU: Nested loop convolution
+
+4. **Ray Marching** (256×256, 50 steps)
+   - WebGL: Fragment shader ray marching
+   - WebGPU: Compute shader distance fields
+   - CPU: Per-pixel ray marching
+
+### Browser Requirements
+
+- **WebGL**: Supported in all modern browsers (Chrome, Firefox, Safari, Edge)
+- **WebGPU**: Chrome 113+, Edge 113+ (experimental in Firefox/Safari)
+
+The web UI automatically detects GPU support and displays availability status.
+
+### Performance Characteristics
+
+- **GPU excels at**: Parallel operations (matrix multiply, particles, image filters)
+- **CPU excels at**: Branching logic, recursion, small datasets
+- **Expected speedups**: 10-100x for GPU-friendly workloads
 
 ## 🦀 Rust Integration (Future)
 
@@ -223,6 +292,9 @@ MIT
 - [x] CLI runner
 - [x] React web UI
 - [x] 2D/Perspective canvas visualization
+- [x] GPU benchmarks (WebGL/WebGPU)
+- [x] Browser GPU support detection
+- [x] Performance comparison (CPU vs GPU)
 - [ ] Rust benchmark implementations
 - [ ] WebAssembly module integration
 - [ ] Full 3D hallway with Three.js

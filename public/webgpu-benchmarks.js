@@ -561,3 +561,8 @@ class WebGPUBenchmarks {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = WebGPUBenchmarks;
 }
+
+// Make available globally for React components
+if (typeof window !== 'undefined') {
+  window.WebGPUBenchmarks = WebGPUBenchmarks;
+}
