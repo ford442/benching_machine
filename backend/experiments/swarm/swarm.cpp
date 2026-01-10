@@ -39,8 +39,9 @@ void init_boids(int count) {
     for(int i=0; i<count; i++) {
         boids[i].x = (float)(rand() % (int)WIDTH);
         boids[i].y = (float)(rand() % (int)HEIGHT);
-        boids[i].vx = ((float)rand()/RAND_MAX - 0.5f) * 4.0f;
-        boids[i].vy = ((float)rand()/RAND_MAX - 0.5f) * 4.0f;
+        // Cast RAND_MAX to float to fix warning
+        boids[i].vx = ((float)rand()/(float)RAND_MAX - 0.5f) * 4.0f;
+        boids[i].vy = ((float)rand()/(float)RAND_MAX - 0.5f) * 4.0f;
         boids[i].ax = 0;
         boids[i].ay = 0;
     }
@@ -51,7 +52,6 @@ void init_boids(int count) {
 void worker_thread_func(int start, int end, float dt) {
     for (int i = start; i < end; i++) {
         // Simple flocking logic placeholders
-        // (In a real benchmark, this would be heavy math)
         boids[i].x += boids[i].vx * dt;
         boids[i].y += boids[i].vy * dt;
         
@@ -98,4 +98,9 @@ EMSCRIPTEN_BINDINGS(my_module) {
     function("init_boids", &init_boids);
     function("update_boids", &update_boids);       // Call for "WASM + Threads"
     function("update_boids_openmp", &update_boids_openmp); // Call for "WASM + OpenMP"
+}
+
+// Entry point (required for linking)
+int main() {
+    return 0;
 }
