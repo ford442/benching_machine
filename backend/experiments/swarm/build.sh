@@ -26,6 +26,6 @@ emcc swarm.cpp -o "$OUT_DIR/swarm.html" \
   -fopenmp \
   -lomp \
   -std=c++17 \
-  -O3
+  -O3 --bind
 
 echo "Build complete. Output: $OUT_DIR/swarm.html"
