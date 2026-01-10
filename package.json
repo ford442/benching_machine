@@ -11,6 +11,7 @@
     "web": "react-scripts start",
     "build": "react-scripts build",
     "build:physics": "cd backend/experiments/physics && ./build-asc.sh && ./build-wasm-opt.sh && ./build-wasmedge-aot.sh",
+    "build:omp": "cd backend/experiments/swarm && ./build.sh",
     "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [

@@ -1,112 +1,101 @@
-// Swarm PoC: spawn multiple threads, each requests its own WebGPU device and runs a compute pass
-// Experimental: requires Emscripten + WebGPU + pthreads support
-
-#include <iostream>
+#include <emscripten/bind.h>
+#include <emscripten/emscripten.h>
 #include <vector>
+#include <cmath>
+#include <algorithm>
 #include <thread>
 #include <mutex>
-#include <emscripten/emscripten.h>
-#include <webgpu/webgpu.h>
+#include <chrono>
 
-// Mutex to keep console output clean
-std::mutex cout_mutex;
+// Include OpenMP header if compiled with -fopenmp
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
-// --- WebGPU Boilerplate Helpers (Callbacks) ---
+using namespace emscripten;
 
-struct ThreadContext {
-    int id;
-    WGPUDevice device;
-    WGPUQueue queue;
-    bool finished;
+struct Boid {
+    float x, y;
+    float vx, vy;
+    float ax, ay;
 };
 
-// Callback when Device is received
-void onDeviceRequestEnded(WGPURequestDeviceStatus status, WGPUDevice device, const char* message, void* userdata) {
-    ThreadContext* ctx = (ThreadContext*)userdata;
-    if (status == WGPURequestDeviceStatus_Success) {
-        ctx->device = device;
-        ctx->queue = wgpuDeviceGetQueue(device);
+// Global simulation state
+std::vector<Boid> boids;
+const int NUM_BOIDS = 2000;
+const float WIDTH = 800.0f;
+const float HEIGHT = 600.0f;
+
+// --- Helper Math ---
+float dist_sq(const Boid& a, const Boid& b) {
+    float dx = a.x - b.x;
+    float dy = a.y - b.y;
+    return dx*dx + dy*dy;
+}
+
+// Initialize
+void init_boids(int count) {
+    boids.resize(count);
+    for(int i=0; i<count; i++) {
+        boids[i].x = (float)(rand() % (int)WIDTH);
+        boids[i].y = (float)(rand() % (int)HEIGHT);
+        boids[i].vx = ((float)rand()/RAND_MAX - 0.5f) * 4.0f;
+        boids[i].vy = ((float)rand()/RAND_MAX - 0.5f) * 4.0f;
+        boids[i].ax = 0;
+        boids[i].ay = 0;
+    }
+}
+
+// --- OPTION A: Manual Pthreads (std::thread) ---
+// This splits the work manually into chunks
+void worker_thread_func(int start, int end, float dt) {
+    for (int i = start; i < end; i++) {
+        // Simple flocking logic placeholders
+        // (In a real benchmark, this would be heavy math)
+        boids[i].x += boids[i].vx * dt;
+        boids[i].y += boids[i].vy * dt;
         
-        std::lock_guard<std::mutex> lock(cout_mutex);
-        std::cout << "[Thread " << ctx->id << "] Acquired GPU Device!" << std::endl;
-    } else {
-        std::lock_guard<std::mutex> lock(cout_mutex);
-        std::cout << "[Thread " << ctx->id << "] Failed to get device: " << (message ? message : "(no message)") << std::endl;
+        // Bounce off walls
+        if(boids[i].x < 0 || boids[i].x > WIDTH) boids[i].vx *= -1;
+        if(boids[i].y < 0 || boids[i].y > HEIGHT) boids[i].vy *= -1;
     }
 }
 
-// Callback when Adapter is received
-void onAdapterRequestEnded(WGPURequestAdapterStatus status, WGPUAdapter adapter, const char* message, void* userdata) {
-    ThreadContext* ctx = (ThreadContext*)userdata;
-    if (status == WGPURequestAdapterStatus_Success) {
-        // We have an adapter, now ask for a device
-        WGPUDeviceDescriptor deviceDesc = {}; // Default descriptor
-        wgpuAdapterRequestDevice(adapter, &deviceDesc, onDeviceRequestEnded, ctx);
-    } else {
-        std::lock_guard<std::mutex> lock(cout_mutex);
-        std::cout << "[Thread " << ctx->id << "] Failed to get adapter." << std::endl;
-    }
-}
+void update_boids(float dt) {
+    int num_threads = 4; // Or std::thread::hardware_concurrency()
+    std::vector<std::thread> threads;
+    int chunk = boids.size() / num_threads;
 
-// --- The Thread Logic ---
-
-void run_gpu_thread(int id) {
-    {
-        std::lock_guard<std::mutex> lock(cout_mutex);
-        std::cout << "[Thread " << id << "] Spawning..." << std::endl;
+    for(int t=0; t<num_threads; t++) {
+        int start = t * chunk;
+        int end = (t == num_threads - 1) ? boids.size() : (t + 1) * chunk;
+        threads.emplace_back(worker_thread_func, start, end, dt);
     }
 
-    ThreadContext ctx = { id, nullptr, nullptr, false };
-
-    // 1. Get the WebGPU Instance
-    WGPUInstanceDescriptor desc = {};
-    WGPUInstance instance = wgpuCreateInstance(&desc);
-
-    // 2. Request Adapter (Async)
-    WGPURequestAdapterOptions options = {};
-    wgpuInstanceRequestAdapter(instance, &options, onAdapterRequestEnded, &ctx);
-
-    // 3. THE HACK: Keep thread alive while waiting for Async JS events
-    // In a real app, you'd use a proper event loop or condition variable.
-    // Here we spin briefly to allow the callback to fire.
-    int timeout = 0;
-    while(ctx.device == nullptr && timeout < 100) {
-        // Give the browser a chance to process the adapter/device callbacks
-        emscripten_sleep(100);
-        timeout++;
-    }
-
-    if (ctx.device) {
-        // --- THIS IS WHERE YOU RUN YOUR COMPUTE SHADER ---
-        {
-            std::lock_guard<std::mutex> lock(cout_mutex);
-            std::cout << "[Thread " << id << "] Running Compute Pass on my personal GPU Device..." << std::endl;
-        }
-
-        // Minimal demonstration: release queue/device
-        wgpuQueueRelease(ctx.queue);
-        wgpuDeviceRelease(ctx.device);
-    } else {
-        std::lock_guard<std::mutex> lock(cout_mutex);
-        std::cout << "[Thread " << id << "] Timed out waiting for GPU." << std::endl;
-    }
-}
-
-int main() {
-    std::cout << "--- STARTING THE SWARM ---" << std::endl;
-
-    std::vector<std::thread> swarm;
-    
-    // Launch 4 threads
-    for (int i = 0; i < 4; i++) {
-        swarm.push_back(std::thread(run_gpu_thread, i));
-    }
-
-    // Join them
-    for (auto& t : swarm) {
+    for(auto& t : threads) {
         t.join();
     }
+}
 
-    std::cout << "--- SWARM FINISHED ---" << std::endl;
-    return 0;
+// --- OPTION B: OpenMP (Runtime Managed) ---
+// The compiler handles the threading logic automatically
+void update_boids_openmp(float dt) {
+    // 1. Parallel Update
+    // 'schedule(static)' is usually fastest for predictable loops like this
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < (int)boids.size(); i++) {
+        boids[i].x += boids[i].vx * dt;
+        boids[i].y += boids[i].vy * dt;
+
+        // Bounce
+        if(boids[i].x < 0 || boids[i].x > WIDTH) boids[i].vx *= -1;
+        if(boids[i].y < 0 || boids[i].y > HEIGHT) boids[i].vy *= -1;
+    }
+}
+
+// Bindings
+EMSCRIPTEN_BINDINGS(my_module) {
+    function("init_boids", &init_boids);
+    function("update_boids", &update_boids);       // Call for "WASM + Threads"
+    function("update_boids_openmp", &update_boids_openmp); // Call for "WASM + OpenMP"
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './BenchmarkRunner.css';
 
 // 1. Define the Master List of "Machines"
+// (Preserving your exact config definitions)
 const configurations = [
   // --- A. Baseline Web ---
   { id: 'js_inline', name: 'Inline Script (HTML)', desc: 'Standard JS embedded directly in HTML', color: '#f1e05a' },
@@ -152,7 +153,10 @@ const mockRunConfig = async (configId) => {
     const isGPU = ['webgl_compute', 'webgpu_compute'].includes(configId);
 
     setTimeout(() => resolve([
+      // GPU Weakness: Recursion (latency heavy)
       generateResult(isGPU ? 5000 : 120000 * m, 20000, 'Fibonacci (Recursive)'),
+
+      // Mixed Bag
       generateResult(90000 * m * (configId === 'js_bigint' ? 0.6 : (isGPU ? 0.5 : 1)), 15000, 'Fibonacci (BigInt/i64)'),
       generateResult(45000 * (isGPU ? (configId === 'webgl_compute' ? 20.0 : 40.0) : m), 5000, 'Matrix Multiply'),
       generateResult(45000 * (m * (supportsWasmThreads ? 1.8 : 0.5)), 8000, 'Matrix Multiply (WASM Threads)'),
