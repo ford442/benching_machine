@@ -8,15 +8,31 @@ class WebGLBenchmarks {
     this.canvas = document.createElement('canvas');
     this.gl = null;
     this.isSupported = false;
+    this.isWebGL2 = false;
     this.initialize();
   }
 
   initialize() {
     try {
-      this.gl = this.canvas.getContext('webgl2') || this.canvas.getContext('webgl');
+      // Try WebGL 2 first, then fallback to WebGL 1
+      this.gl = this.canvas.getContext('webgl2');
+      if (this.gl) {
+        this.isWebGL2 = true;
+      } else {
+        this.gl = this.canvas.getContext('webgl');
+        this.isWebGL2 = false;
+      }
+
       this.isSupported = !!this.gl;
       if (this.isSupported) {
-        console.log('WebGL initialized successfully');
+        console.log(`WebGL initialized successfully (${this.isWebGL2 ? 'WebGL 2' : 'WebGL 1'})`);
+
+        // Ensure float texture support for matrix multiplication
+        if (!this.isWebGL2) {
+          this.gl.getExtension('OES_texture_float');
+        } else {
+          this.gl.getExtension('EXT_color_buffer_float');
+        }
       }
     } catch (e) {
       console.error('WebGL not supported:', e);
@@ -78,6 +94,9 @@ class WebGLBenchmarks {
       }
     `;
 
+    // Note: In WebGL 2 (RED format), .r is the value.
+    // In WebGL 1 (LUMINANCE format), .r is also the value.
+    // So this shader works for both versions.
     const fragmentShaderSource = `
       precision highp float;
       uniform sampler2D u_matrixA;
@@ -106,20 +125,37 @@ class WebGLBenchmarks {
       matrixB[i] = Math.random();
     }
 
+    // Determine correct texture formats based on WebGL version
+    // WebGL 2: Must use R32F (internal) and RED (format) for floats
+    // WebGL 1: Uses LUMINANCE for both
+    let internalFormat, format;
+    if (this.isWebGL2) {
+      internalFormat = this.gl.R32F; // 0x822E
+      format = this.gl.RED;         // 0x1903
+    } else {
+      internalFormat = this.gl.LUMINANCE;
+      format = this.gl.LUMINANCE;
+    }
+
     // Setup textures
     const textureA = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, textureA);
-    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.LUMINANCE, size, size, 0, 
-                       this.gl.LUMINANCE, this.gl.FLOAT, matrixA);
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, internalFormat, size, size, 0,
+                       format, this.gl.FLOAT, matrixA);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    // Wrap modes needed for non-power-of-2 textures in some contexts
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
 
     const textureB = this.gl.createTexture();
     this.gl.bindTexture(this.gl.TEXTURE_2D, textureB);
-    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, this.gl.LUMINANCE, size, size, 0, 
-                       this.gl.LUMINANCE, this.gl.FLOAT, matrixB);
+    this.gl.texImage2D(this.gl.TEXTURE_2D, 0, internalFormat, size, size, 0,
+                       format, this.gl.FLOAT, matrixB);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.NEAREST);
     this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.NEAREST);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
+    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
 
     // Setup framebuffer
     const framebuffer = this.gl.createFramebuffer();
@@ -131,6 +167,19 @@ class WebGLBenchmarks {
     this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
     this.gl.framebufferTexture2D(this.gl.FRAMEBUFFER, this.gl.COLOR_ATTACHMENT0, 
                                  this.gl.TEXTURE_2D, resultTexture, 0);
+
+    // Check Framebuffer status
+    const status = this.gl.checkFramebufferStatus(this.gl.FRAMEBUFFER);
+    if (status !== this.gl.FRAMEBUFFER_COMPLETE) {
+        console.error('Framebuffer incomplete:', status);
+        // Clean up and return early to avoid crash
+        this.gl.deleteTexture(textureA);
+        this.gl.deleteTexture(textureB);
+        this.gl.deleteTexture(resultTexture);
+        this.gl.deleteFramebuffer(framebuffer);
+        this.gl.deleteProgram(program);
+        return false;
+    }
 
     // Render
     this.gl.useProgram(program);
@@ -319,14 +368,20 @@ class WebGLBenchmarks {
     const results = [];
 
     // Matrix Multiply
-    const matrixStart = performance.now();
-    await this.matrixMultiply(256);
-    const matrixTime = performance.now() - matrixStart;
-    results.push({
-      name: 'Matrix Multiply WebGL (256x256)',
-      opsPerSec: 1000 / matrixTime,
-      timeMs: matrixTime
-    });
+    try {
+        const matrixStart = performance.now();
+        const success = await this.matrixMultiply(256);
+        if (success) {
+            const matrixTime = performance.now() - matrixStart;
+            results.push({
+            name: 'Matrix Multiply WebGL (256x256)',
+            opsPerSec: 1000 / matrixTime,
+            timeMs: matrixTime
+            });
+        }
+    } catch(e) {
+        console.error("Matrix multiply failed", e);
+    }
 
     // Particle Simulation
     const particleStart = performance.now();
