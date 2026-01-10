@@ -5,12 +5,14 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const animationRef = useRef(null);
-  const [viewMode, setViewMode] = useState('2d');
+
+  const [viewMode, setViewMode] = useState('2d'); // '2d' is now Grid View
+  const [useLogScale, setUseLogScale] = useState(false); // Toggle for Level Comparison
 
   // --- Configuration ---
-  const ANIMATION_SPEED = 50;
-  const RACK_WIDTH = 220;  // Fixed width per rack
-  const RACK_SPACING = 30; // Gap between racks
+  const RACK_WIDTH = 220;
+  const RACK_HEIGHT = 400; // Fixed height for grid calculation
+  const GAP = 30;
   const START_PADDING = 40;
 
   useEffect(() => {
@@ -21,35 +23,45 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
     const ctx = canvas.getContext('2d');
     let animationFrame = 0;
 
-    // Safety check for data
     const dataToRender = benchmarkData || { configurations: [] };
     const configs = dataToRender.configurations.length > 0
       ? dataToRender.configurations
-      : [{ name: 'Waiting for data...', tests: [] }];
+      : [{ name: 'Waiting...', tests: [] }];
 
     const resizeCanvas = () => {
-      const containerH = container.clientHeight;
       const containerW = container.clientWidth;
 
       if (viewMode === '2d') {
-        // SCROLL MODE: Width grows with data
-        const requiredWidth = START_PADDING + (configs.length * (RACK_WIDTH + RACK_SPACING)) + START_PADDING;
-        // Ensure canvas is at least as wide as the screen, but can grow larger
-        canvas.width = Math.max(containerW, requiredWidth);
+        // GRID MODE: Calculate rows needed
+        // Available width for columns
+        const availableW = containerW - (START_PADDING * 2);
+        const colCount = Math.max(1, Math.floor(availableW / (RACK_WIDTH + GAP)));
+        const rowCount = Math.ceil(configs.length / colCount);
+
+        const requiredHeight = START_PADDING + (rowCount * (RACK_HEIGHT + GAP)) + START_PADDING;
+
+        canvas.width = containerW; // Fill width
+        canvas.height = Math.max(container.clientHeight, requiredHeight); // Scrollable height
       } else {
-        // PERSPECTIVE MODE: Fixed to viewport (looks down the hall)
+        // PERSPECTIVE: Fixed to viewport
         canvas.width = containerW;
+        canvas.height = container.clientHeight;
       }
-      canvas.height = containerH;
     };
 
-    // Initial resize + Listen for window changes
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
     const animate = () => {
       animationFrame++;
-      drawHallway(ctx, canvas.width, canvas.height, animationFrame, configs, isRunning, viewMode, RACK_WIDTH, RACK_SPACING, START_PADDING);
+      // Determine max score for scaling
+      let maxScore = 0;
+      configs.forEach(c => c.tests.forEach(t => {
+        if (t.opsPerSec > maxScore) maxScore = t.opsPerSec;
+      }));
+      if (maxScore === 0) maxScore = 100000;
+
+      drawHallway(ctx, canvas.width, canvas.height, animationFrame, configs, isRunning, viewMode, useLogScale, maxScore, RACK_WIDTH, GAP, START_PADDING);
       animationRef.current = requestAnimationFrame(animate);
     };
 
@@ -59,7 +71,7 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
       window.removeEventListener('resize', resizeCanvas);
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [benchmarkData, isRunning, viewMode]); // Re-run when data changes (e.g. race happens)
+  }, [benchmarkData, isRunning, viewMode, useLogScale]);
 
   return (
     <div className="hallway-visualization">
@@ -68,17 +80,24 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
           className={`view-button ${viewMode === '2d' ? 'active' : ''}`}
           onClick={() => setViewMode('2d')}
         >
-          2D Overview (Scrollable)
+          Grid View
         </button>
         <button 
           className={`view-button ${viewMode === 'perspective' ? 'active' : ''}`}
           onClick={() => setViewMode('perspective')}
         >
-          Perspective Hallway
+          Perspective
+        </button>
+        <div style={{width: '20px'}}></div>
+        <button
+          className={`view-button ${useLogScale ? 'active' : ''}`}
+          onClick={() => setUseLogScale(!useLogScale)}
+          title="Use Logarithmic Scale for CPU vs GPU comparison"
+        >
+          {useLogScale ? '📊 Log Scale (On)' : '📊 Linear Scale'}
         </button>
       </div>
 
-      {/* The Scrollable Window */}
       <div className="canvas-container" ref={containerRef}>
         <canvas ref={canvasRef} className="hallway-canvas" />
       </div>
@@ -86,46 +105,48 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
   );
 }
 
-function drawHallway(ctx, width, height, frame, configs, isRunning, viewMode, rackW, spacing, startX) {
-  // Clear Background
+function drawHallway(ctx, w, h, frame, configs, isRunning, viewMode, logScale, maxScore, rackW, gap, padding) {
+  // Clear
   ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, w, h);
 
   if (viewMode === 'perspective') {
-    drawPerspective(ctx, width, height, frame, configs, isRunning);
+    drawPerspective(ctx, w, h, frame, configs, isRunning, logScale, maxScore);
   } else {
-    draw2D(ctx, width, height, frame, configs, isRunning, rackW, spacing, startX);
+    drawGrid(ctx, w, h, frame, configs, isRunning, logScale, maxScore, rackW, gap, padding);
   }
 }
 
-function draw2D(ctx, width, height, frame, configs, isRunning, rackW, spacing, startX) {
-  const rackHeight = height - 100;
+function drawGrid(ctx, w, h, frame, configs, isRunning, logScale, maxScore, rackW, gap, padding) {
+  // Grid Logic
+  const availableW = w - (padding * 2);
+  const colCount = Math.max(1, Math.floor(availableW / (rackW + gap)));
 
-  // Draw Floor Line
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.beginPath();
-  ctx.moveTo(0, height - 20);
-  ctx.lineTo(width, height - 20);
-  ctx.stroke();
+  // Center the grid if it's smaller than width
+  const gridW = colCount * (rackW + gap) - gap;
+  const startX = padding + (availableW - gridW) / 2;
 
-  // Draw Racks
   configs.forEach((config, i) => {
-    const x = startX + i * (rackW + spacing);
-    const y = 60; // Top margin
+    const col = i % colCount;
+    const row = Math.floor(i / colCount);
 
-    drawRack(ctx, x, y, rackW, rackHeight, config, frame, 1.0);
+    const x = startX + col * (rackW + gap);
+    const y = padding + row * (400 + gap); // 400 is approx rack height
+
+    drawRack(ctx, x, y, rackW, 380, config, frame, 1.0, logScale, maxScore);
   });
 }
 
-function drawPerspective(ctx, width, height, frame, configs, isRunning) {
+function drawPerspective(ctx, width, height, frame, configs, isRunning, logScale, maxScore) {
   const cx = width / 2;
   const cy = height / 3;
 
-  // Grid Lines (Floor)
+  // Simple floor grid
   ctx.strokeStyle = 'rgba(102, 126, 234, 0.2)';
   ctx.lineWidth = 1;
-  for (let i = 0; i < 12; i++) {
-    const y = height / 2 + i * 40;
+  for (let i = 0; i < 20; i++) {
+    const y = height / 2 + i * 30;
+    if (y > height) break;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(cx, cy);
@@ -133,27 +154,23 @@ function drawPerspective(ctx, width, height, frame, configs, isRunning) {
     ctx.stroke();
   }
 
-  // Draw racks back-to-front
+  // Draw racks in a single shrinking row (Classic Hallway)
   const rackCount = configs.length;
-  
   configs.forEach((config, i) => {
     const offsetFromCenter = i - (rackCount - 1) / 2;
-    // Depth Calculation
     const depth = 1 - (Math.abs(offsetFromCenter) * (0.8 / Math.max(5, rackCount)));
     const scale = Math.max(0.1, depth);
     
     const rackW = 220 * scale;
     const rackH = (height - 200) * scale;
-    
-    // Position
     const x = cx + (offsetFromCenter * (240 * (15/rackCount))) - (rackW/2);
     const y = cy + 100 * scale;
 
-    drawRack(ctx, x, y, rackW, rackH, config, frame, scale);
+    drawRack(ctx, x, y, rackW, rackH, config, frame, scale, logScale, maxScore);
   });
 }
 
-function drawRack(ctx, x, y, width, height, config, frame, scale) {
+function drawRack(ctx, x, y, width, height, config, frame, scale, logScale, maxScore) {
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.fillRect(x + 10 * scale, y + 10 * scale, width, height);
@@ -162,7 +179,7 @@ function drawRack(ctx, x, y, width, height, config, frame, scale) {
   ctx.fillStyle = '#2d3748';
   ctx.fillRect(x, y, width, height);
   
-  // Border (Neon Glow)
+  // Border
   ctx.strokeStyle = config.color || '#4a5568';
   ctx.lineWidth = 3 * scale;
   ctx.strokeRect(x, y, width, height);
@@ -173,7 +190,7 @@ function drawRack(ctx, x, y, width, height, config, frame, scale) {
   ctx.textAlign = 'center';
   ctx.fillText(config.name, x + width / 2, y + 30 * scale);
 
-  // Config Desc (Tiny)
+  // Desc
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = `${10 * scale}px sans-serif`;
   ctx.fillText(config.desc || '', x + width / 2, y + 45 * scale);
@@ -193,14 +210,24 @@ function drawRack(ctx, x, y, width, height, config, frame, scale) {
       ctx.textAlign = 'left';
       ctx.fillText(test.name.split(' ')[0], x + 10 * scale, by - 4 * scale);
 
+      // Bar Calculation
+      let pct = 0;
+      if (logScale) {
+        // Log Scale: Log(Val) / Log(Max)
+        // Add 1 to avoid log(0)
+        const valLog = Math.log10(test.opsPerSec + 1);
+        const maxLog = Math.log10(maxScore + 1);
+        pct = Math.max(0, valLog / maxLog);
+      } else {
+        // Linear Scale
+        pct = Math.min(test.opsPerSec / maxScore, 1);
+      }
+
+      const barW = (width - 20 * scale) * pct;
+
       // Bar BG
       ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
       ctx.fillRect(x + 10 * scale, by, width - 20 * scale, barHeight);
-
-      // WebGPU Handling: Scale down visual for massive scores
-      const MAX_VISUAL_SCORE = 500000;
-      const pct = Math.min(test.opsPerSec / MAX_VISUAL_SCORE, 1);
-      const barW = (width - 20 * scale) * pct;
 
       // Animated Gradient
       const grad = ctx.createLinearGradient(x, 0, x + width, 0);
@@ -211,19 +238,19 @@ function drawRack(ctx, x, y, width, height, config, frame, scale) {
       ctx.fillStyle = grad;
       ctx.fillRect(x + 10 * scale, by, barW, barHeight);
 
-      // Score
+      // Score Text
       ctx.fillStyle = '#fff';
       ctx.textAlign = 'right';
       ctx.font = `bold ${11 * scale}px monospace`;
-      // Use "M" for millions if score is huge
-      const scoreText = test.opsPerSec > 1000000
-        ? (test.opsPerSec / 1000000).toFixed(1) + 'M'
-        : Math.round(test.opsPerSec).toLocaleString();
+
+      let scoreText = Math.round(test.opsPerSec).toLocaleString();
+      if (test.opsPerSec > 1000000) {
+        scoreText = (test.opsPerSec / 1000000).toFixed(1) + 'M';
+      }
 
       ctx.fillText(scoreText, x + width - 15 * scale, by + barHeight - 8 * scale);
     });
   } else {
-    // Empty State
     ctx.fillStyle = 'rgba(255,255,255,0.1)';
     ctx.font = `${12 * scale}px sans-serif`;
     ctx.textAlign = 'center';
