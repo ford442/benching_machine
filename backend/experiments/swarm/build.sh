@@ -4,6 +4,9 @@ set -euo pipefail
 # Build the Swarm PoC using emscripten
 # Assumes libomp.a and omp.h are in project_root/public/
 
+#specific to my colab build system
+source /content/build_space/emsdk/emsdk_env.sh
+
 OUT_DIR="dist"
 mkdir -p "$OUT_DIR"
 
