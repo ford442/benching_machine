@@ -83,7 +83,7 @@ function getMultiplier(configId) {
 async function runConfig(configId) {
   const m = getMultiplier(configId);
   const supportsWasmThreads = ['js_wasm_std','utf16_1ijs','utf16_html','wasm_threads','wasm_simd','wasm_rust','wasm_as','wasm_cheerp','wasm_max'].includes(configId);
-  const supportsOpenMP = ['utf16_1ijs','utf16_html','wasm_rust','wasm_cheerp','wasm_max'].includes(configId);
+  const supportsOpenMP = ['utf16_1ijs','utf16_html','wasm_rust','wasm_cheerp','wasm_max', 'wasm_openmp'].includes(configId);
 
   // Load Score Simulation
   let loadScore = 150000;

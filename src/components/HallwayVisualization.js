@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import './HallwayVisualization.css';
 
 function HallwayVisualization({ benchmarkData, isRunning }) {
@@ -6,14 +6,83 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
   const containerRef = useRef(null);
   const animationRef = useRef(null);
 
-  const [viewMode, setViewMode] = useState('2d'); // '2d' is now Grid View
-  const [useLogScale, setUseLogScale] = useState(false); // Toggle for Level Comparison
+  // View States
+  // zoomMode: 'grid' (Distant), 'row' (Standard), 'single' (Focused)
+  const [zoomMode, setZoomMode] = useState('grid');
+  const [focusedTest, setFocusedTest] = useState(null); // Filter by specific test
+  const [useLogScale, setUseLogScale] = useState(false);
 
-  // --- Configuration ---
-  const RACK_WIDTH = 220;
-  const RACK_HEIGHT = 400; // Fixed height for grid calculation
-  const GAP = 30;
-  const START_PADDING = 40;
+  // --- Constants ---
+  const RACK_WIDTH_STD = 220;
+  const RACK_WIDTH_GRID = 60; // Tiny rack for distant view
+  const GAP_STD = 30;
+  const GAP_GRID = 10;
+
+  // Interaction Handler
+  const handleCanvasClick = useCallback((e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const data = benchmarkData || { configurations: [] };
+    const configs = data.configurations;
+
+    // Logic depends on current View Mode
+    if (zoomMode === 'grid') {
+      // Hit test for Grid Items
+      const availableW = canvas.width - 40;
+      const colCount = Math.max(1, Math.floor(availableW / (RACK_WIDTH_GRID + GAP_GRID)));
+
+      const col = Math.floor((x - 20) / (RACK_WIDTH_GRID + GAP_GRID));
+      const row = Math.floor((y - 20) / (100 + GAP_GRID)); // 100 is approx grid rack height
+      const index = row * colCount + col;
+
+      if (index >= 0 && index < configs.length) {
+        // Clicked a rack -> Zoom in
+        setZoomMode('row');
+        // Optional: We could scroll to this rack, but standard 'row' view is fine for now
+      }
+    } else if (zoomMode === 'row') {
+      // Hit test for Test Bars
+      const rackW = 220;
+      const gap = 30;
+      const startX = 40;
+      const startY = 120; // y(60) + header(60)
+      const barH = 30;
+      const barStep = 40; // 30 + 10 gap
+
+      // 1. Determine which Rack (Column)
+      // x = startX + i * (rackW + gap)
+      // i = (x - startX) / (rackW + gap)
+      if (x < startX) return;
+      const colIndex = Math.floor((x - startX) / (rackW + gap));
+      const xInRack = (x - startX) % (rackW + gap);
+
+      // Check if we clicked on a rack (not the gap) and valid index
+      if (xInRack <= rackW && colIndex >= 0 && colIndex < configs.length) {
+        // 2. Determine which Bar (Row)
+        if (y < startY) return; // Header click? (Ignore for now)
+
+        const barIndex = Math.floor((y - startY) / barStep);
+        const yInBar = (y - startY) % barStep;
+
+        // Check if we clicked a bar (not the gap)
+        const tests = configs[colIndex].tests;
+        if (yInBar <= barH && barIndex >= 0 && barIndex < tests.length) {
+          const clickedTest = tests[barIndex];
+          // Toggle filter
+          if (focusedTest === clickedTest.name) {
+            setFocusedTest(null); // Un-zoom if already selected
+          } else {
+            setFocusedTest(clickedTest.name);
+          }
+        }
+      }
+    }
+  }, [benchmarkData, zoomMode, focusedTest]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -24,238 +93,248 @@ function HallwayVisualization({ benchmarkData, isRunning }) {
     let animationFrame = 0;
 
     const dataToRender = benchmarkData || { configurations: [] };
-    const configs = dataToRender.configurations.length > 0
-      ? dataToRender.configurations
-      : [{ name: 'Waiting...', tests: [] }];
+    const configs = dataToRender.configurations;
 
     const resizeCanvas = () => {
       const containerW = container.clientWidth;
+      const containerH = container.clientHeight;
 
-      if (viewMode === '2d') {
-        // GRID MODE: Calculate rows needed
-        // Available width for columns
-        const availableW = containerW - (START_PADDING * 2);
-        const colCount = Math.max(1, Math.floor(availableW / (RACK_WIDTH + GAP)));
+      let reqW = containerW;
+      let reqH = containerH;
+
+      if (zoomMode === 'grid') {
+        // Distant Grid Calculation
+        const colCount = Math.max(1, Math.floor((containerW - 40) / (RACK_WIDTH_GRID + GAP_GRID)));
         const rowCount = Math.ceil(configs.length / colCount);
-
-        const requiredHeight = START_PADDING + (rowCount * (RACK_HEIGHT + GAP)) + START_PADDING;
-
-        canvas.width = containerW; // Fill width
-        canvas.height = Math.max(container.clientHeight, requiredHeight); // Scrollable height
+        reqH = Math.max(containerH, 40 + (rowCount * (100 + GAP_GRID)) + 40);
+        reqW = containerW; // Grid fits width
       } else {
-        // PERSPECTIVE: Fixed to viewport
-        canvas.width = containerW;
-        canvas.height = container.clientHeight;
+        // Row View (Standard) - Horizontal Scroll
+        const totalW = 40 + (configs.length * (RACK_WIDTH_STD + GAP_STD)) + 40;
+        reqW = Math.max(containerW, totalW);
+        reqH = Math.max(containerH, 600); // Minimum height for details
+      }
+
+      if (canvas.width !== reqW || canvas.height !== reqH) {
+        canvas.width = reqW;
+        canvas.height = reqH;
       }
     };
 
+    // Initial resize
     resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
+    // Add resize listener
+    const resizeObserver = new ResizeObserver(resizeCanvas);
+    resizeObserver.observe(container);
 
     const animate = () => {
       animationFrame++;
-      // Determine max score for scaling
+
+      // Calculate Max Score dynamically based on filters
       let maxScore = 0;
       configs.forEach(c => c.tests.forEach(t => {
-        if (t.opsPerSec > maxScore) maxScore = t.opsPerSec;
+        // If we are focused on a specific test, only count that test's score
+        if (!focusedTest || t.name === focusedTest) {
+          if (t.opsPerSec > maxScore) maxScore = t.opsPerSec;
+        }
       }));
-      if (maxScore === 0) maxScore = 100000;
+      if (maxScore === 0) maxScore = 1;
 
-      drawHallway(ctx, canvas.width, canvas.height, animationFrame, configs, isRunning, viewMode, useLogScale, maxScore, RACK_WIDTH, GAP, START_PADDING);
+      // Draw
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (zoomMode === 'grid') {
+        drawDistantGrid(ctx, canvas.width, canvas.height, frameToTime(animationFrame), configs, maxScore);
+      } else {
+        drawStandardRow(ctx, canvas.width, canvas.height, frameToTime(animationFrame), configs, maxScore, focusedTest, useLogScale);
+      }
+
       animationRef.current = requestAnimationFrame(animate);
     };
 
     animate();
 
     return () => {
-      window.removeEventListener('resize', resizeCanvas);
+      resizeObserver.disconnect();
       if (animationRef.current) cancelAnimationFrame(animationRef.current);
     };
-  }, [benchmarkData, isRunning, viewMode, useLogScale]);
+  }, [benchmarkData, isRunning, zoomMode, focusedTest, useLogScale]);
+
+  // Helper: Reset Filters
+  const resetView = () => {
+    setZoomMode('grid');
+    setFocusedTest(null);
+  };
 
   return (
     <div className="hallway-visualization">
       <div className="view-controls">
-        <button 
-          className={`view-button ${viewMode === '2d' ? 'active' : ''}`}
-          onClick={() => setViewMode('2d')}
-        >
-          Grid View
+        <button className={`view-button ${zoomMode === 'grid' ? 'active' : ''}`} onClick={() => setZoomMode('grid')}>
+          🔍 Distant Grid
         </button>
-        <button 
-          className={`view-button ${viewMode === 'perspective' ? 'active' : ''}`}
-          onClick={() => setViewMode('perspective')}
-        >
-          Perspective
+        <button className={`view-button ${zoomMode === 'row' ? 'active' : ''}`} onClick={() => setZoomMode('row')}>
+          📏 Detailed Row
         </button>
-        <div style={{width: '20px'}}></div>
-        <button
-          className={`view-button ${useLogScale ? 'active' : ''}`}
-          onClick={() => setUseLogScale(!useLogScale)}
-          title="Use Logarithmic Scale for CPU vs GPU comparison"
-        >
-          {useLogScale ? '📊 Log Scale (On)' : '📊 Linear Scale'}
+
+        <div style={{width:'1px', height:'20px', background:'rgba(255,255,255,0.2)', margin:'0 10px'}}></div>
+
+        <button className={`view-button ${useLogScale ? 'active' : ''}`} onClick={() => setUseLogScale(!useLogScale)}>
+          📊 Log Scale
         </button>
+
+        {focusedTest && (
+          <button className="view-button active" onClick={() => setFocusedTest(null)} style={{background:'#e74c3c', borderColor:'#c0392b'}}>
+             ✕ Clear Filter: "{focusedTest.split(' ')[0]}"
+          </button>
+        )}
       </div>
 
       <div className="canvas-container" ref={containerRef}>
-        <canvas ref={canvasRef} className="hallway-canvas" />
+        <canvas
+          ref={canvasRef}
+          className="hallway-canvas"
+          onClick={handleCanvasClick}
+          style={{cursor: zoomMode === 'grid' ? 'zoom-in' : 'default'}}
+        />
+      </div>
+
+      <div className="future-note">
+        {(benchmarkData && benchmarkData.configurations) ? benchmarkData.configurations.length : 0} Racks Online
       </div>
     </div>
   );
 }
 
-function drawHallway(ctx, w, h, frame, configs, isRunning, viewMode, logScale, maxScore, rackW, gap, padding) {
-  // Clear
-  ctx.fillStyle = '#1a1a2e';
-  ctx.fillRect(0, 0, w, h);
+// --- Draw Functions ---
 
-  if (viewMode === 'perspective') {
-    drawPerspective(ctx, w, h, frame, configs, isRunning, logScale, maxScore);
-  } else {
-    drawGrid(ctx, w, h, frame, configs, isRunning, logScale, maxScore, rackW, gap, padding);
-  }
-}
+function frameToTime(f) { return f * 0.05; }
 
-function drawGrid(ctx, w, h, frame, configs, isRunning, logScale, maxScore, rackW, gap, padding) {
-  // Grid Logic
-  const availableW = w - (padding * 2);
-  const colCount = Math.max(1, Math.floor(availableW / (rackW + gap)));
+function drawDistantGrid(ctx, w, h, time, configs, globalMax) {
+  const rackW = 60;
+  const rackH = 100;
+  const gap = 10;
+  const padding = 20;
 
-  // Center the grid if it's smaller than width
-  const gridW = colCount * (rackW + gap) - gap;
-  const startX = padding + (availableW - gridW) / 2;
+  const colCount = Math.max(1, Math.floor((w - padding*2) / (rackW + gap)));
 
   configs.forEach((config, i) => {
     const col = i % colCount;
     const row = Math.floor(i / colCount);
 
-    const x = startX + col * (rackW + gap);
-    const y = padding + row * (400 + gap); // 400 is approx rack height
+    const x = padding + col * (rackW + gap);
+    const y = padding + row * (rackH + gap);
 
-    drawRack(ctx, x, y, rackW, 380, config, frame, 1.0, logScale, maxScore);
-  });
-}
+    // Calculate "Total Heat" of the rack for color
+    const totalScore = config.tests.reduce((acc, t) => acc + t.opsPerSec, 0);
+    const intensity = Math.min(1, totalScore / (globalMax * 2)); // rough normalize
 
-function drawPerspective(ctx, width, height, frame, configs, isRunning, logScale, maxScore) {
-  const cx = width / 2;
-  const cy = height / 3;
+    // Rack Box
+    ctx.fillStyle = '#2d3748';
+    ctx.fillRect(x, y, rackW, rackH);
 
-  // Simple floor grid
-  ctx.strokeStyle = 'rgba(102, 126, 234, 0.2)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i < 20; i++) {
-    const y = height / 2 + i * 30;
-    if (y > height) break;
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(cx, cy);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
+    // Status Light (Activity)
+    const pulse = Math.sin(time + i) * 0.5 + 0.5;
+    ctx.fillStyle = `rgba(${config.color === '#ff0000' ? '255, 50, 50' : '100, 255, 100'}, ${0.3 + pulse * 0.5})`;
+    ctx.fillRect(x + 5, y + 5, rackW - 10, 5);
 
-  // Draw racks in a single shrinking row (Classic Hallway)
-  const rackCount = configs.length;
-  configs.forEach((config, i) => {
-    const offsetFromCenter = i - (rackCount - 1) / 2;
-    const depth = 1 - (Math.abs(offsetFromCenter) * (0.8 / Math.max(5, rackCount)));
-    const scale = Math.max(0.1, depth);
+    // Mini Bars (Abstract representation)
+    const barW = rackW - 10;
+    const barH = (rackH - 20) / Math.max(1, config.tests.length);
     
-    const rackW = 220 * scale;
-    const rackH = (height - 200) * scale;
-    const x = cx + (offsetFromCenter * (240 * (15/rackCount))) - (rackW/2);
-    const y = cy + 100 * scale;
+    config.tests.forEach((t, ti) => {
+      const by = y + 20 + ti * barH;
+      const bw = barW * Math.min(1, t.opsPerSec / globalMax);
+      ctx.fillStyle = config.color || '#aaa';
+      ctx.fillRect(x + 5, by, bw, barH - 2);
+    });
 
-    drawRack(ctx, x, y, rackW, rackH, config, frame, scale, logScale, maxScore);
+    // Label (Tiny)
+    ctx.fillStyle = '#fff';
+    ctx.font = '8px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(config.name.substring(0, 8), x + rackW/2, y + rackH + 8);
   });
 }
 
-function drawRack(ctx, x, y, width, height, config, frame, scale, logScale, maxScore) {
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(x + 10 * scale, y + 10 * scale, width, height);
+function drawStandardRow(ctx, w, h, time, configs, maxScore, focusedTest, logScale) {
+  const rackW = 220;
+  const rackH = h - 80;
+  const gap = 30;
+  const startX = 40;
 
-  // Body
-  ctx.fillStyle = '#2d3748';
-  ctx.fillRect(x, y, width, height);
-  
-  // Border
-  ctx.strokeStyle = config.color || '#4a5568';
-  ctx.lineWidth = 3 * scale;
-  ctx.strokeRect(x, y, width, height);
+  // Floor
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.beginPath(); ctx.moveTo(0, h-20); ctx.lineTo(w, h-20); ctx.stroke();
 
-  // Header
-  ctx.fillStyle = config.color || '#fff';
-  ctx.font = `bold ${14 * scale}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText(config.name, x + width / 2, y + 30 * scale);
+  configs.forEach((config, i) => {
+    const x = startX + i * (rackW + gap);
+    const y = 60;
 
-  // Desc
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
-  ctx.font = `${10 * scale}px sans-serif`;
-  ctx.fillText(config.desc || '', x + width / 2, y + 45 * scale);
+    // Rack Body
+    ctx.fillStyle = '#2d3748';
+    ctx.fillRect(x, y, rackW, rackH);
+    ctx.strokeStyle = config.color || '#555';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x, y, rackW, rackH);
 
-  // Bars
-  if (config.tests && config.tests.length > 0) {
-    const barHeight = 35 * scale;
-    const gap = 12 * scale;
-    const startY = y + 60 * scale;
+    // Header
+    ctx.fillStyle = config.color || '#fff';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(config.name, x + rackW/2, y + 30);
 
-    config.tests.forEach((test, i) => {
-      const by = startY + i * (barHeight + gap);
-      
-      // Label
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.font = `${10 * scale}px monospace`;
-      ctx.textAlign = 'left';
-      ctx.fillText(test.name.split(' ')[0], x + 10 * scale, by - 4 * scale);
+    // Bars
+    let currentY = y + 60;
+    const barH = 30;
 
-      // Bar Calculation
+    config.tests.forEach((t, ti) => {
+      // Filter Logic
+      if (focusedTest && t.name !== focusedTest) return; // Skip if filtered
+
+      // Calculation
       let pct = 0;
       if (logScale) {
-        // Log Scale: Log(Val) / Log(Max)
-        // Add 1 to avoid log(0)
-        const valLog = Math.log10(test.opsPerSec + 1);
+        const valLog = Math.log10(t.opsPerSec + 1);
         const maxLog = Math.log10(maxScore + 1);
         pct = Math.max(0, valLog / maxLog);
       } else {
-        // Linear Scale
-        pct = Math.min(test.opsPerSec / maxScore, 1);
+        pct = Math.min(1, t.opsPerSec / maxScore);
       }
-
-      const barW = (width - 20 * scale) * pct;
 
       // Bar BG
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-      ctx.fillRect(x + 10 * scale, by, width - 20 * scale, barHeight);
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
+      ctx.fillRect(x + 10, currentY, rackW - 20, barH);
 
-      // Animated Gradient
-      const grad = ctx.createLinearGradient(x, 0, x + width, 0);
-      const hue = (frame * 2 + i * 30) % 360;
-      grad.addColorStop(0, `hsla(${hue}, 70%, 50%, 0.9)`);
-      grad.addColorStop(1, `hsla(${hue + 40}, 70%, 60%, 0.9)`);
-      
+      // Value Bar
+      const grad = ctx.createLinearGradient(x, 0, x + rackW, 0);
+      const hue = (ti * 40) % 360;
+      grad.addColorStop(0, `hsla(${hue}, 70%, 50%, 0.8)`);
+      grad.addColorStop(1, `hsla(${hue}, 70%, 65%, 0.8)`);
       ctx.fillStyle = grad;
-      ctx.fillRect(x + 10 * scale, by, barW, barHeight);
+      ctx.fillRect(x + 10, currentY, (rackW - 20) * pct, barH);
 
-      // Score Text
+      // Text
       ctx.fillStyle = '#fff';
+      ctx.textAlign = 'left';
+      ctx.font = '10px monospace';
+      ctx.fillText(t.name, x + 12, currentY + 12);
+
       ctx.textAlign = 'right';
-      ctx.font = `bold ${11 * scale}px monospace`;
+      let scoreStr = Math.round(t.opsPerSec).toLocaleString();
+      if (t.opsPerSec > 1000000) scoreStr = (t.opsPerSec/1000000).toFixed(1) + "M";
+      ctx.fillText(scoreStr, x + rackW - 12, currentY + 24);
 
-      let scoreText = Math.round(test.opsPerSec).toLocaleString();
-      if (test.opsPerSec > 1000000) {
-        scoreText = (test.opsPerSec / 1000000).toFixed(1) + 'M';
-      }
-
-      ctx.fillText(scoreText, x + width - 15 * scale, by + barHeight - 8 * scale);
+      currentY += barH + 10;
     });
-  } else {
-    ctx.fillStyle = 'rgba(255,255,255,0.1)';
-    ctx.font = `${12 * scale}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText("Initializing...", x + width/2, y + height/2);
-  }
+
+    if (focusedTest && currentY === y + 60) {
+      // Test not found in this rack
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.textAlign = 'center';
+      ctx.fillText("N/A", x + rackW/2, y + 100);
+    }
+  });
 }
 
 export default HallwayVisualization;
