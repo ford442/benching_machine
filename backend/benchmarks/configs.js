@@ -24,6 +24,14 @@ const configurations = [
 
   { id: 'wasm_simd', name: 'WASM + SIMD128', desc: 'Parallel vector operations enabled', color: '#2ecc71' },
   { id: 'wasm_threads', name: 'WASM + Threads', desc: 'Multithreaded via SharedArrayBuffer', color: '#e84393' },
+
+  { 
+    id: 'wasm_openmp', 
+    name: 'WASM + OpenMP', 
+    desc: 'OMP Runtime + libomp.a', 
+    color: '#ff0000' 
+  },
+  
   { id: 'wasm_max', name: 'WASM Max (OMP+SIMD)', desc: 'OpenMP Threads + SIMD128 Vectorization', color: '#ff0000' },
 
   // NEW: GPU Compute
@@ -59,6 +67,7 @@ function getMultiplier(configId) {
     case 'wasmedge_aot': return 4.5;
     case 'wasm_simd': return 3.5;
     case 'wasm_threads': return 4.0;
+    case 'wasm_openmp': return 4.2;
     case 'wasm_max': return 5.5;
 
     // GPU: Huge multiplier for supported tasks
