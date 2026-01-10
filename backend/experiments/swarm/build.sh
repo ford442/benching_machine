@@ -1,17 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build the Swarm PoC using emscripten (emsdk required)
-# Make sure emcc is on PATH (source emsdk_env.sh)
+# Build the Swarm PoC using emscripten
+# Assumes libomp.a and omp.h are in project_root/public/
 
 OUT_DIR="dist"
 mkdir -p "$OUT_DIR"
 
+# Path to public folder relative to this script (backend/experiments/swarm)
+PUBLIC_DIR="../../../public"
+
+echo "Building Swarm with OpenMP support..."
+
 emcc swarm.cpp -o "$OUT_DIR/swarm.html" \
   -s USE_WEBGPU=1 \
   -s USE_PTHREADS=1 \
-  -s PTHREAD_POOL_SIZE=4 \
+  -s PTHREAD_POOL_SIZE=8 \
   -s PROXY_TO_PTHREAD \
+  -s TOTAL_MEMORY=256MB \
+  -I"$PUBLIC_DIR" \
+  -L"$PUBLIC_DIR" \
+  -fopenmp \
+  -lomp \
   -std=c++17 \
   -O3
 
