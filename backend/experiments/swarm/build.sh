@@ -7,13 +7,13 @@ set -euo pipefail
 OUT_DIR="dist"
 mkdir -p "$OUT_DIR"
 
-# Path to public folder relative to this script (backend/experiments/swarm)
+# Path to public folder relative to this script
 PUBLIC_DIR="../../../public"
 
-echo "Building Swarm with OpenMP support..."
+echo "Building Swarm with OpenMP + WebGPU support..."
 
 emcc swarm.cpp -o "$OUT_DIR/swarm.html" \
-  -s USE_WEBGPU=1 \
+  --use-port=emdawnwebgpu \
   -s USE_PTHREADS=1 \
   -s PTHREAD_POOL_SIZE=8 \
   -s PROXY_TO_PTHREAD \
