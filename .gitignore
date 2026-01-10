@@ -36,3 +36,4 @@ Cargo.lock
 
 # Test coverage
 coverage/
+!public/benchmarks/**/*.wasm
