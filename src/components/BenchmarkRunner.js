@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import './BenchmarkRunner.css';
 
 // 1. Define the Master List of "Machines"
+// (Preserving your exact config definitions)
 const configurations = [
   // --- A. Baseline Web ---
   { id: 'js_inline', name: 'Inline Script (HTML)', desc: 'Standard JS embedded directly in HTML', color: '#f1e05a' },
@@ -30,7 +31,7 @@ const configurations = [
   { id: 'wasm_threads', name: 'WASM + Threads', desc: 'Multithreaded via SharedArrayBuffer', color: '#e84393' },
   { id: 'wasm_max', name: 'WASM Max (OMP+SIMD)', desc: 'OpenMP Threads + SIMD128 Vectorization', color: '#ff0000' },
 
-  // --- F. GPU Compute (NEW) ---
+  // --- F. GPU Compute ---
   { id: 'webgl_compute', name: 'WebGL Compute', desc: 'GPU acceleration via WebGL shaders', color: '#00d4ff' },
   { id: 'webgpu_compute', name: 'WebGPU Compute', desc: 'Massive parallel WGSL compute shaders', color: '#8e44ad' },
 
@@ -53,7 +54,7 @@ const generateResult = (baseScore, variance, name) => ({
 });
 
 const mockRunConfig = async (configId) => {
-  // For GPU configurations, run real benchmarks
+  // 1. REAL BENCHMARKING (Preserved)
   if (configId === 'webgl_compute') {
     try {
       if (window.GPUBenchmarkRunner) {
@@ -86,11 +87,11 @@ const mockRunConfig = async (configId) => {
     }
   }
 
-  // Fallback to mock data for other configurations
+  // 2. FALLBACK SIMULATION (Updated for Level Comparison)
   return new Promise((resolve) => {
     let m = 1.0;
     let startupDelay = 0;
-    let loadScore = 150000; // Baseline load score
+    let loadScore = 150000;
 
     switch (configId) {
       // Baseline
@@ -98,19 +99,19 @@ const mockRunConfig = async (configId) => {
       case 'js_external': m = 1.05; break;
       case 'js_wasm_std': m = 2.5; break;
 
-      // JS Optimizers
+      // Optimizers
       case 'js_terser': m = 1.05; loadScore = 180000; break;
       case 'js_closure': m = 1.4; loadScore = 190000; break;
-      case 'js_roadroller': m = 1.0; loadScore = 50000; break; // Slow unpacking
+      case 'js_roadroller': m = 1.0; loadScore = 50000; break;
 
-      // Data & Compilers
+      // Data/Compilers
       case 'js_bigint': m = 0.8; break;
       case 'wasm_i64': m = 2.8; break;
       case 'wasm_rust': m = 2.5; break;
       case 'wasm_cheerp': m = 2.45; break;
       case 'wasm_as': m = 2.3; break;
 
-      // WASM Optimizers
+      // WASM Opts
       case 'wasm_opt': m = 2.8; loadScore = 170000; break;
       case 'wasmedge_aot': m = 4.5; loadScore = 200000; break;
       case 'wasm_asc_opt': m = 2.8; loadScore = 170000; break;
@@ -120,7 +121,8 @@ const mockRunConfig = async (configId) => {
       case 'wasm_threads': m = 4.0; break;
       case 'wasm_max': m = 5.5; break;
 
-      // GPU (fallback mocked values)
+      // GPU (Simulation Fallback)
+      // These numbers are tuned for the "Level Comparison"
       case 'webgl_compute': m = 15.0; loadScore = 100000; break;
       case 'webgpu_compute': m = 25.0; loadScore = 80000; break;
 
@@ -135,10 +137,14 @@ const mockRunConfig = async (configId) => {
     const isGPU = ['webgl_compute', 'webgpu_compute'].includes(configId);
 
     setTimeout(() => resolve([
+      // GPU Weakness: Recursion (latency heavy)
       generateResult(isGPU ? 5000 : 120000 * m, 20000, 'Fibonacci (Recursive)'),
+
+      // Mixed Bag
       generateResult(90000 * m * (configId === 'js_bigint' ? 0.6 : (isGPU ? 0.5 : 1)), 15000, 'Fibonacci (BigInt/i64)'),
 
-      generateResult(45000 * (isGPU ? 40.0 : m), 5000, 'Matrix Multiply'),
+      // GPU Strength: Matrix Mult
+      generateResult(45000 * (isGPU ? (configId === 'webgl_compute' ? 20.0 : 40.0) : m), 5000, 'Matrix Multiply'),
 
       generateResult(45000 * (m * (supportsWasmThreads ? 1.8 : 0.5)), 8000, 'Matrix Multiply (WASM Threads)'),
       generateResult(60000 * (supportsOpenMP ? (m * 2.2) : (m * 0.4)), 10000, 'Matrix Multiply (OpenMP SIMD)'),
@@ -154,7 +160,6 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
   const [gpuSupport, setGpuSupport] = useState({ webgl: true, webgpu: false });
 
   useEffect(() => {
-    // Check GPU support
     const checkGPUSupport = async () => {
       const webglSupported = !!(document.createElement('canvas').getContext('webgl2') || 
                                 document.createElement('canvas').getContext('webgl'));
@@ -224,7 +229,6 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
     let currentResults = configurations.map(c => ({ ...c, tests: [] }));
 
     const updateState = (updatedList) => {
-      // Leaderboard Sort
       const sorted = [...updatedList].sort((a, b) => {
         const scoreA = calculateScore(a);
         const scoreB = calculateScore(b);
@@ -238,7 +242,6 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
       return updatedList;
     };
 
-    // Initial Render
     updateState(currentResults);
 
     try {
@@ -264,21 +267,23 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
     <div className="benchmark-runner">
       <div className="runner-card">
         <h2>Web Architecture Leaderboard</h2>
-        <button 
-          className="run-button"
-          onClick={runBenchmarks}
-          disabled={isRunning}
-        >
-          {isRunning ? '🏎️ Racing...' : '▶ Run Full Suite'}
-        </button>
-        <button 
-          className="run-button"
-          onClick={runGPUBenchmarks}
-          disabled={isRunning}
-          style={{ marginLeft: '10px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
-        >
-          {isRunning ? '🎮 Testing...' : '🎮 GPU Benchmarks'}
-        </button>
+        <div className="button-group">
+          <button
+            className="run-button"
+            onClick={runBenchmarks}
+            disabled={isRunning}
+          >
+            {isRunning ? '🏎️ Racing...' : '▶ Run Full Suite'}
+          </button>
+          <button
+            className="run-button"
+            onClick={runGPUBenchmarks}
+            disabled={isRunning}
+            style={{ marginLeft: '10px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}
+          >
+            {isRunning ? '🎮 Testing...' : '🎮 GPU Benchmarks'}
+          </button>
+        </div>
         
         {progress && <div className="progress-status">{progress}</div>}
 
