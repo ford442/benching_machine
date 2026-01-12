@@ -12,6 +12,9 @@
     "build": "react-scripts build",
     "build:physics": "cd backend/experiments/physics && ./build-asc.sh && ./build-wasm-opt.sh && ./build-wasmedge-aot.sh",
     "build:omp": "cd backend/experiments/swarm && ./build.sh",
+    "build:all-wasm": "npm run build:physics && npm run build:omp && cd backend/benchmarks/rust && ./build.sh && echo 'Cheerp: Run backend/benchmarks/cheerp/build.sh manually'",
+    "build:rust": "cd backend/benchmarks/rust && ./build.sh",
+    "build:cheerp": "cd backend/benchmarks/cheerp && ./build.sh",
     "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [
