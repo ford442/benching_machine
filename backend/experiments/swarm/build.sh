@@ -5,7 +5,15 @@ set -euo pipefail
 # Assumes libomp.a and omp.h are in project_root/public/
 
 #specific to my colab build system
-source /content/build_space/emsdk/emsdk_env.sh
+# source /content/build_space/emsdk/emsdk_env.sh
+# Attempt to source emsdk_env.sh from local emsdk directory if it exists
+if [ -f "../../../emsdk/emsdk_env.sh" ]; then
+    source "../../../emsdk/emsdk_env.sh"
+fi
+
+if [ -f "/content/build_space/emsdk/emsdk_env.sh" ]; then
+    source "/content/build_space/emsdk/emsdk_env.sh"
+fi
 
 OUT_DIR="dist"
 mkdir -p "$OUT_DIR"
