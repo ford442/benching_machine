@@ -11,6 +11,10 @@ if [ -f "../../../emsdk/emsdk_env.sh" ]; then
     source "../../../emsdk/emsdk_env.sh"
 fi
 
+if [ -f "/content/build_space/emsdk/emsdk_env.sh" ]; then
+    source "/content/build_space/emsdk/emsdk_env.sh"
+fi
+
 OUT_DIR="dist"
 mkdir -p "$OUT_DIR"
 
