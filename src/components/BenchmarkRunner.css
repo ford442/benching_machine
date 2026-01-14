@@ -136,3 +136,10 @@
 .button-group {
     display: flex;
 }
+
+@media (min-width: 1024px) {
+  .benchmark-runner {
+    width: 380px;
+    flex: 0 0 380px;
+  }
+}
