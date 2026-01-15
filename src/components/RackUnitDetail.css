@@ -1,0 +1,58 @@
+.rack-overlay-backdrop {
+  position: fixed;
+  top: 0; left: 0; width: 100vw; height: 100vh;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex; justify-content: center; align-items: center;
+  z-index: 2000;
+  backdrop-filter: blur(5px);
+}
+
+.rack-unit-frame {
+  width: 900px; height: 675px; /* Aspect Ratio 4:3ish */
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  position: relative;
+  filter: drop-shadow(0 0 50px rgba(0, 150, 255, 0.2));
+}
+
+/* SCREEN POSITIONING - Tweak these to fit the generated image monitors */
+.rack-screen-interface {
+  position: absolute;
+  background: rgba(10, 15, 30, 0.95);
+  border-radius: 4px;
+  display: flex; flex-direction: column;
+  padding: 15px;
+  font-family: 'Courier New', monospace;
+  color: #00ffcc;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+  overflow: hidden;
+}
+
+/* Specific offsets for different unit types */
+.unit-style-std .rack-screen-interface { top: 18%; left: 20%; width: 60%; height: 48%; }
+.unit-style-gpu .rack-screen-interface { top: 25%; left: 15%; width: 70%; height: 40%; border: 1px solid #0f0; box-shadow: inset 0 0 30px rgba(0, 255, 0, 0.2); }
+.unit-style-cores .rack-screen-interface { top: 18%; left: 22%; width: 56%; height: 45%; color: #fa0; border: 1px solid #fa0; }
+
+.text-glow { text-shadow: 0 0 10px currentColor; }
+
+.screen-header { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 10px; margin-bottom: 10px; }
+.screen-header h3 { margin: 0; font-size: 1.2rem; }
+.unit-id { font-size: 0.8rem; opacity: 0.7; }
+
+.close-btn { background: transparent; border: 1px solid #ff4444; color: #ff4444; cursor: pointer; font-weight: bold; }
+.close-btn:hover { background: #ff4444; color: #000; }
+
+.screen-body { flex: 1; display: flex; flex-direction: column; }
+.screen-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
+.screen-tabs button { background: #1a1a2e; border: none; color: #889; padding: 5px 10px; cursor: pointer; font-family: inherit; }
+.screen-tabs button.active { background: currentColor; color: #000; box-shadow: 0 0 10px currentColor; }
+
+.monitor-view { text-align: center; margin-top: 20px; }
+.stat-value { font-size: 3rem; font-weight: bold; line-height: 1; margin: 10px 0; display: block; }
+.control-group { margin-bottom: 15px; display: flex; flex-direction: column; gap: 5px; }
+.control-actions { display: flex; gap: 10px; margin-top: auto; }
+.action-btn { flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: 1px solid currentColor; color: currentColor; cursor: pointer; }
+
+.screen-footer { margin-top: auto; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 5px; font-size: 0.7rem; display: flex; justify-content: space-between; opacity: 0.7; }
+.status-indicator.online::before { content: '●'; margin-right: 5px; color: #0f0; }
