@@ -3,9 +3,9 @@ import './RackUnitDetail.css';
 
 // Helper to choose the right background image based on config ID
 const getUnitBackground = (id) => {
-  if (id.includes('webgl') || id.includes('webgpu')) return '/design/rack_unit_gpu.png';
-  if (id.includes('threads') || id.includes('openmp')) return '/design/rack_unit_cores.png';
-  return '/design/rack_unit_std.png'; // Default standard unit
+  if (id.includes('webgl') || id.includes('webgpu')) return process.env.PUBLIC_URL + '/design/rack_unit_gpu.png';
+  if (id.includes('threads') || id.includes('openmp')) return process.env.PUBLIC_URL + '/design/rack_unit_cores.png';
+  return process.env.PUBLIC_URL + '/design/rack_unit_std.png'; // Default standard unit
 };
 
 // Helper to apply specific CSS class for alignment

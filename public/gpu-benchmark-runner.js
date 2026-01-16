@@ -21,12 +21,12 @@ class GPUBenchmarkRunner {
 
     // Load WebGL benchmarks
     if (!window.WebGLBenchmarks) {
-      await this.loadScript('/webgl-benchmarks.js');
+      await this.loadScript('webgl-benchmarks.js');
     }
 
     // Load WebGPU benchmarks
     if (!window.WebGPUBenchmarks) {
-      await this.loadScript('/webgpu-benchmarks.js');
+      await this.loadScript('webgpu-benchmarks.js');
     }
 
     return true;

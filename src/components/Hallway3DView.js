@@ -2,9 +2,9 @@ import React from 'react';
 import './Hallway3DView.css';
 
 const getUnitImage = (id) => {
-  if (id.includes('webgl') || id.includes('webgpu')) return '/design/rack_unit_gpu.png';
-  if (id.includes('threads') || id.includes('openmp') || id === 'wasm_max') return '/design/rack_unit_cores.png';
-  return '/design/rack_unit_std.png';
+  if (id.includes('webgl') || id.includes('webgpu')) return process.env.PUBLIC_URL + '/design/rack_unit_gpu.png';
+  if (id.includes('threads') || id.includes('openmp') || id === 'wasm_max') return process.env.PUBLIC_URL + '/design/rack_unit_cores.png';
+  return process.env.PUBLIC_URL + '/design/rack_unit_std.png';
 };
 
 const UNITS_PER_RACK = 8;
