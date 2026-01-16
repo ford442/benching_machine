@@ -5,10 +5,10 @@ export async function loadWasmModule(configId) {
       case 'wasm_as':
       case 'wasm_asc_opt':
         // AssemblyScript (Emscripten-style)
-        await checkFileExists('/benchmarks/physics/candy_physics.js');
+        await checkFileExists(process.env.PUBLIC_URL + '/benchmarks/physics/candy_physics.js');
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = '/benchmarks/physics/candy_physics.js';
+          script.src = process.env.PUBLIC_URL + '/benchmarks/physics/candy_physics.js';
           script.onload = resolve;
           script.onerror = reject;
           document.head.appendChild(script);
@@ -24,7 +24,7 @@ export async function loadWasmModule(configId) {
           // Adjusting path to match typical output or verify existence.
           // If built via build.sh provided, it's likely just in the root of that dir.
           // Let's assume /benchmarks/rust/rust_benchmark.js based on build.sh
-          const path = '/benchmarks/rust/rust_benchmark.js';
+          const path = process.env.PUBLIC_URL + '/benchmarks/rust/rust_benchmark.js';
           await checkFileExists(path);
           const rustModule = await import(/* webpackIgnore: true */ path);
           module = await rustModule.default();
@@ -34,10 +34,10 @@ export async function loadWasmModule(configId) {
         break;
       case 'wasm_cheerp':
         // Cheerp (assume built to /benchmarks/cheerp/cheerp_benchmark.js)
-        await checkFileExists('/benchmarks/cheerp/cheerp_benchmark.js');
+        await checkFileExists(process.env.PUBLIC_URL + '/benchmarks/cheerp/cheerp_benchmark.js');
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = '/benchmarks/cheerp/cheerp_benchmark.js';
+          script.src = process.env.PUBLIC_URL + '/benchmarks/cheerp/cheerp_benchmark.js';
           script.onload = resolve;
           script.onerror = reject;
           document.head.appendChild(script);
@@ -58,10 +58,10 @@ export async function loadWasmModule(configId) {
       case 'wasm_threads':
       case 'wasm_simd':
         // Threaded via Emscripten
-        await checkFileExists('/wasm/swarm.js');
+        await checkFileExists(process.env.PUBLIC_URL + '/wasm/swarm.js');
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
-          script.src = '/wasm/swarm.js';
+          script.src = process.env.PUBLIC_URL + '/wasm/swarm.js';
           script.onload = resolve;
           script.onerror = reject;
           document.head.appendChild(script);
