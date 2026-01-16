@@ -4,26 +4,16 @@ export async function loadWasmModule(configId) {
     switch (configId) {
       case 'wasm_as':
       case 'wasm_asc_opt':
-        // AssemblyScript (Emscripten-style)
-        await checkFileExists(process.env.PUBLIC_URL + '/benchmarks/physics/candy_physics.js');
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = process.env.PUBLIC_URL + '/benchmarks/physics/candy_physics.js';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-        if (!window.Module) throw new Error('AssemblyScript Module not loaded');
-        module = window.Module;
+        // AssemblyScript (ES Module)
+        // Fix: Use dynamic import() instead of script tag to handle 'export' syntax
+        const asPath = process.env.PUBLIC_URL + '/benchmarks/physics/candy_physics.js';
+        await checkFileExists(asPath);
+        module = await import(/* webpackIgnore: true */ asPath);
         break;
+
       case 'wasm_rust':
         // Rust via wasm-pack
         try {
-          // Check if file exists first to avoid 404/MIME issues
-          // Note: wasm-pack usually outputs to a direct file or pkg dir.
-          // Adjusting path to match typical output or verify existence.
-          // If built via build.sh provided, it's likely just in the root of that dir.
-          // Let's assume /benchmarks/rust/rust_benchmark.js based on build.sh
           const path = process.env.PUBLIC_URL + '/benchmarks/rust/rust_benchmark.js';
           await checkFileExists(path);
           const rustModule = await import(/* webpackIgnore: true */ path);
@@ -32,8 +22,9 @@ export async function loadWasmModule(configId) {
           throw new Error(`Rust WASM not built or load failed: ${e.message}`);
         }
         break;
+
       case 'wasm_cheerp':
-        // Cheerp (assume built to /benchmarks/cheerp/cheerp_benchmark.js)
+        // Cheerp (C++)
         await checkFileExists(process.env.PUBLIC_URL + '/benchmarks/cheerp/cheerp_benchmark.js');
         await new Promise((resolve, reject) => {
           const script = document.createElement('script');
@@ -45,30 +36,44 @@ export async function loadWasmModule(configId) {
         if (!window.CheerpModule) throw new Error('Cheerp WASM not built');
         module = window.CheerpModule;
         break;
+
       case 'wasm_opt':
         // Optimized WASM (post-processed)
         module = await loadWasmModule('wasm_as'); // Base, then assume optimized loaded
         break;
+
       case 'wasmedge_aot':
         // AOT (simulated as optimized WASM)
         module = await loadWasmModule('wasm_opt');
         break;
+
       case 'wasm_openmp':
       case 'wasm_max':
       case 'wasm_threads':
       case 'wasm_simd':
         // Threaded via Emscripten
-        await checkFileExists(process.env.PUBLIC_URL + '/wasm/swarm.js');
-        await new Promise((resolve, reject) => {
-          const script = document.createElement('script');
-          script.src = process.env.PUBLIC_URL + '/wasm/swarm.js';
-          script.onload = resolve;
-          script.onerror = reject;
-          document.head.appendChild(script);
-        });
-        if (!window.Module) throw new Error('Threaded WASM Module not loaded');
+        const swarmPath = process.env.PUBLIC_URL + '/wasm/swarm.js';
+        await checkFileExists(swarmPath);
+
+        // Fix: Check if script is ALREADY loaded to prevent "Identifier declared" errors
+        if (!document.querySelector(`script[src="${swarmPath}"]`)) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = swarmPath;
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
+        }
+
+        // Wait briefly for Module to initialize if it was just loaded or previously loaded
+        if (!window.Module) {
+             // Retry briefly or throw (Emscripten usually inits synchronously after script load unless -s MODULARIZE=1)
+             throw new Error('Threaded WASM Module not loaded');
+        }
         module = window.Module;
         break;
+
       default:
         throw new Error(`No loader for ${configId}`);
     }
