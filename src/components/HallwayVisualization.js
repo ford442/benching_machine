@@ -14,7 +14,7 @@ function HallwayVisualization({ benchmarkData }) {
       {/* View Controls Header */}
       <div className="view-controls">
         <span style={{color: '#fff', fontSize: '0.9rem', opacity: 0.7}}>
-          VISUALIZATION MODE: <strong>3D IMMERSIVE</strong>
+          VISUALIZATION MODE: <strong>SERVER ROOM</strong>
         </span>
       </div>
 
@@ -39,7 +39,7 @@ function HallwayVisualization({ benchmarkData }) {
       </div>
 
       <div className="future-note">
-        {configs.length} Racks Online • Click a rack to inspect
+        {configs.length} Units Online • Click a unit to inspect
       </div>
     </div>
   );

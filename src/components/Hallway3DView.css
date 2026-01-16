@@ -1,72 +1,181 @@
-.hallway-3d-container {
+.server-room-container {
   width: 100%;
-  height: 600px;
-  background-color: #050505;
-  background-image: radial-gradient(circle at 50% 30%, #1a1a2a 0%, #000000 70%);
-  overflow: hidden;
-  perspective: 1000px; /* Camera Depth */
-  position: relative;
-  border-bottom: 2px solid #333;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background-color: #0b0c10;
+  background-image:
+    radial-gradient(circle at 50% 50%, #1a1f25 0%, #000000 100%);
+  display: flex;
+  align-items: center; /* Vertically center the racks */
 }
 
-.hallway-scene {
-  width: 100%; height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  display: flex; justify-content: center; align-items: center;
-  transform: rotateX(5deg) translateY(-50px);
+.rack-row {
+  display: flex;
+  flex-direction: row;
+  gap: 40px;
+  padding: 0 40px;
+  min-width: max-content;
+  height: 90%; /* Occupy most height */
+  align-items: center;
 }
 
-.rack-unit-3d-card {
-  position: absolute;
-  width: 400px; height: 300px;
-  background-size: cover; background-position: center;
+.rack-column {
+  width: 320px;
+  background: #111;
+  border: 1px solid #333;
   border-radius: 4px;
-  box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
-  cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  border-left: 6px solid #2a2a2a;
+  border-right: 6px solid #2a2a2a;
 }
 
-.rack-unit-3d-card:hover {
-  transform: translateZ(50px) scale(1.05) !important;
-  box-shadow: 0 0 40px rgba(0, 255, 255, 0.4);
-  opacity: 1 !important;
-  z-index: 1000 !important;
+.rack-header {
+  background: linear-gradient(to bottom, #2a2a2a, #1a1a1a);
+  padding: 12px;
+  border-bottom: 2px solid #000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 2px 2px 0 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.rack-header-text {
+  color: #aaa;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+  font-size: 0.9rem;
+  letter-spacing: 1px;
+  text-shadow: 0 -1px 0 #000;
+}
+
+.rack-lights {
+  display: flex;
+  gap: 6px;
+}
+
+.light {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #333;
+  border: 1px solid #000;
+}
+.light.red { background: #ff3333; box-shadow: 0 0 4px #ff3333; }
+.light.green { background: #33ff33; box-shadow: 0 0 4px #33ff33; }
+
+.rack-stack {
+  background: #050505;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.rack-stack::-webkit-scrollbar {
+  width: 4px;
+}
+.rack-stack::-webkit-scrollbar-thumb {
+  background: #333;
+}
+
+/* Individual Unit */
+.rack-unit-item {
+  width: 100%;
+  height: 56px; /* Standard 1U/2U feel */
+  background-size: cover;
+  background-position: center;
+  border-radius: 1px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.15s ease-out;
+  border: 1px solid #000;
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.9);
+}
+
+.rack-unit-item:hover {
+  transform: scale(1.03);
+  z-index: 100;
+  box-shadow: 0 0 20px rgba(100, 255, 218, 0.4);
+  border-color: #64ffda;
+  filter: brightness(1.2);
+}
+
+.unit-status-light {
+  position: absolute;
+  top: 50%; left: 12px;
+  transform: translateY(-50%);
+  width: 6px; height: 6px;
+  background: #00ff88;
+  box-shadow: 0 0 6px #00ff88;
+  border-radius: 50%;
+  opacity: 0.8;
+}
+
+.rack-unit-item:hover .unit-status-light {
+  background: #fff;
+  box-shadow: 0 0 10px #fff;
 }
 
 .rack-label-overlay {
-  position: absolute; bottom: 10px; left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0,0,0,0.7);
-  border: 1px solid #00ffcc;
-  color: #00ffcc;
-  padding: 5px 10px;
-  font-family: 'Courier New', monospace;
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 15px 0 30px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 100%);
+  opacity: 0.9;
+}
+
+.label-id {
+  color: #ccc;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.label-score {
+  color: #64ffda;
+  font-family: monospace;
+  font-size: 0.75rem;
+  background: rgba(0, 40, 30, 0.6);
+  padding: 2px 6px;
+  border-radius: 3px;
+  border: 1px solid rgba(100, 255, 218, 0.2);
+}
+
+.rack-footer {
+  background: #151515;
+  border-top: 1px solid #000;
+  padding: 10px;
+  color: #333;
+  font-family: monospace;
+  font-size: 0.6rem;
   text-align: center;
-  opacity: 0.7;
-  transition: opacity 0.3s;
+  border-radius: 0 0 2px 2px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
 }
 
-.rack-unit-3d-card:hover .rack-label-overlay { opacity: 1; }
-.label-id { display: block; font-size: 0.8rem; font-weight: bold; }
-.label-score { display: block; font-size: 0.7rem; }
-
-.rack-reflection {
-  position: absolute; top: 100%; left: 0; width: 100%; height: 100%;
-  background-size: cover; background-position: center;
-  transform: rotateX(180deg) scaleY(-1);
-  opacity: 0.2;
-  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 50%);
-  mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 50%);
-  pointer-events: none;
+/* Scrollbar */
+.server-room-container::-webkit-scrollbar {
+  height: 10px;
 }
-
-.hallway-floor {
-  position: absolute; width: 2000px; height: 2000px;
-  background: linear-gradient(to bottom, #111 0%, #000 100%);
-  top: 50%;
-  transform: rotateX(90deg) translateZ(150px);
-  z-index: -1;
-  opacity: 0.5;
-  box-shadow: inset 0 0 100px rgba(0,0,0,0.8);
+.server-room-container::-webkit-scrollbar-track {
+  background: #0b0c10;
+}
+.server-room-container::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 5px;
+  border: 2px solid #0b0c10;
+}
+.server-room-container::-webkit-scrollbar-thumb:hover {
+  background: #444;
 }
