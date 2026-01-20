@@ -57,26 +57,34 @@ class CompilationBenchmark {
   }
 
   /**
-   * Simulate WebAssembly compilation time
-   * Note: Actual WASM compilation would require a .wasm file
+   * Real WebAssembly compilation
+   * Compiles a minimal WASM module synchronously
    */
-  simulateWasmCompilation() {
-    // Placeholder for WebAssembly compilation benchmarks
-    // In a real implementation, this would:
-    // 1. Load a .wasm file
-    // 2. Compile it using WebAssembly.compile()
-    // 3. Instantiate it using WebAssembly.instantiate()
-    // 4. Measure the compilation time
+  wasmCompilation() {
+    // Minimal valid WASM binary (Magic + Version)
+    const wasmCode = new Uint8Array([
+      0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
+      // Section 1 (Type): 1 type, func(i32, i32) -> i32
+      0x01, 0x07, 0x01, 0x60, 0x02, 0x7f, 0x7f, 0x01, 0x7f,
+      // Section 3 (Function): 1 function, using type 0
+      0x03, 0x02, 0x01, 0x00,
+      // Section 7 (Export): "add" -> func 0
+      0x07, 0x07, 0x01, 0x03, 0x61, 0x64, 0x64, 0x00, 0x00,
+      // Section 10 (Code): 1 function body
+      0x0a, 0x09, 0x01, 0x07, 0x00, 0x20, 0x00, 0x20, 0x01, 0x6a, 0x0b
+    ]);
+
+    // Synchronous compilation (new WebAssembly.Module)
+    // This measures the time to parse and compile the bytecode
+    const module = new WebAssembly.Module(wasmCode);
+
+    // Optional: Instantiate to verify (adds a tiny bit of overhead but ensures validity)
+    const instance = new WebAssembly.Instance(module);
     
-    const startTime = Date.now();
-    // Simulate some compilation work
-    const buffer = new ArrayBuffer(1024);
-    const view = new Uint8Array(buffer);
-    for (let i = 0; i < 1024; i++) {
-      view[i] = i % 256;
+    // Check if the exported function works (validity check, negligible cost relative to compilation)
+    if (instance.exports.add(1, 2) !== 3) {
+      throw new Error('WASM compilation failed validity check');
     }
-    const endTime = Date.now();
-    return endTime - startTime;
   }
 
   /**
@@ -94,8 +102,8 @@ class CompilationBenchmark {
         .add('Dynamic Function Creation (100 calls)', () => {
           this.dynamicFunction(100);
         })
-        .add('WASM Compilation Simulation', () => {
-          this.simulateWasmCompilation();
+        .add('WASM Compilation (Real)', () => {
+          this.wasmCompilation();
         })
         .on('cycle', (event) => {
           const benchmark = event.target;

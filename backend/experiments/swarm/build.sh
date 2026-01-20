@@ -15,7 +15,7 @@ if [ -f "/content/build_space/emsdk/emsdk_env.sh" ]; then
     source "/content/build_space/emsdk/emsdk_env.sh"
 fi
 
-OUT_DIR="dist"
+OUT_DIR="../../../public/wasm"
 mkdir -p "$OUT_DIR"
 
 # Path to public folder relative to this script
@@ -23,7 +23,7 @@ PUBLIC_DIR="../../../public"
 
 echo "Building Swarm with OpenMP + WebGPU support..."
 
-emcc swarm.cpp -o "$OUT_DIR/swarm.html" \
+emcc swarm.cpp -o "$OUT_DIR/swarm.js" \
   --use-port=emdawnwebgpu \
   -s USE_PTHREADS=1 \
   -s PTHREAD_POOL_SIZE=8 \
@@ -36,4 +36,4 @@ emcc swarm.cpp -o "$OUT_DIR/swarm.html" \
   -std=c++17 \
   -O3 --bind
 
-echo "Build complete. Output: $OUT_DIR/swarm.html"
+echo "Build complete. Output: $OUT_DIR/swarm.js"
