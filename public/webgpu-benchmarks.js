@@ -37,12 +37,10 @@ class WebGPUBenchmarks {
   }
 
   /**
-   * Matrix Multiplication using WebGPU Compute Shader
+   * Naive Matrix Multiplication (Global Memory)
    */
-  async matrixMultiply(size = 256) {
-    if (!this.isSupported) {
-      throw new Error('WebGPU not supported');
-    }
+  async matrixMultiplyNaive(size = 256) {
+    if (!this.isSupported) throw new Error('WebGPU not supported');
 
     const shaderCode = `
       @group(0) @binding(0) var<storage, read> matrixA: array<f32>;
@@ -68,42 +66,82 @@ class WebGPUBenchmarks {
       }
     `;
 
+    return this._runMatrixOp(size, shaderCode, 'Naive');
+  }
+
+  /**
+   * Tiled Matrix Multiplication (Shared Memory / Thread Cooperative)
+   */
+  async matrixMultiplyTiled(size = 256) {
+    if (!this.isSupported) throw new Error('WebGPU not supported');
+
+    const BLOCK_SIZE = 16;
+
+    const shaderCode = `
+      @group(0) @binding(0) var<storage, read> matrixA: array<f32>;
+      @group(0) @binding(1) var<storage, read> matrixB: array<f32>;
+      @group(0) @binding(2) var<storage, read_write> result: array<f32>;
+      @group(0) @binding(3) var<uniform> size: u32;
+
+      var<workgroup> tileA: array<array<f32, ${BLOCK_SIZE}>, ${BLOCK_SIZE}>;
+      var<workgroup> tileB: array<array<f32, ${BLOCK_SIZE}>, ${BLOCK_SIZE}>;
+
+      @compute @workgroup_size(${BLOCK_SIZE}, ${BLOCK_SIZE})
+      fn main(
+        @builtin(global_invocation_id) global_id: vec3<u32>,
+        @builtin(local_invocation_id) local_id: vec3<u32>,
+        @builtin(workgroup_id) group_id: vec3<u32>
+      ) {
+        let row = global_id.y;
+        let col = global_id.x;
+        let localRow = local_id.y;
+        let localCol = local_id.x;
+
+        var sum = 0.0;
+
+        // Loop over tiles
+        for (var t = 0u; t < size / ${BLOCK_SIZE}u; t = t + 1u) {
+          // Load one tile into shared memory
+          let tiledRow = row;
+          let tiledCol = t * ${BLOCK_SIZE}u + localCol;
+          tileA[localRow][localCol] = matrixA[tiledRow * size + tiledCol];
+
+          let tiledRowB = t * ${BLOCK_SIZE}u + localRow;
+          let tiledColB = col;
+          tileB[localRow][localCol] = matrixB[tiledRowB * size + tiledColB];
+
+          // Wait for all threads in workgroup to load
+          workgroupBarrier();
+
+          // Compute dot product for this tile
+          for (var k = 0u; k < ${BLOCK_SIZE}u; k = k + 1u) {
+            sum = sum + tileA[localRow][k] * tileB[k][localCol];
+          }
+
+          // Wait before overwriting shared memory
+          workgroupBarrier();
+        }
+
+        if (row < size && col < size) {
+          result[row * size + col] = sum;
+        }
+      }
+    `;
+
+    return this._runMatrixOp(size, shaderCode, 'Tiled');
+  }
+
+  async _runMatrixOp(size, shaderCode, label) {
     const shaderModule = this.device.createShaderModule({ code: shaderCode });
-
-    // Create input matrices
     const matrixSize = size * size;
-    const matrixA = new Float32Array(matrixSize);
-    const matrixB = new Float32Array(matrixSize);
-    for (let i = 0; i < matrixSize; i++) {
-      matrixA[i] = Math.random();
-      matrixB[i] = Math.random();
-    }
+    const matrixA = new Float32Array(matrixSize).map(() => Math.random());
+    const matrixB = new Float32Array(matrixSize).map(() => Math.random());
 
-    // Create GPU buffers
-    const matrixABuffer = this.device.createBuffer({
-      size: matrixA.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(matrixABuffer, 0, matrixA);
+    const matrixABuffer = this._createBuffer(matrixA, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+    const matrixBBuffer = this._createBuffer(matrixB, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+    const resultBuffer = this._createBuffer(new Float32Array(matrixSize), GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+    const sizeBuffer = this._createBuffer(new Uint32Array([size]), GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
-    const matrixBBuffer = this.device.createBuffer({
-      size: matrixB.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(matrixBBuffer, 0, matrixB);
-
-    const resultBuffer = this.device.createBuffer({
-      size: matrixA.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    });
-
-    const sizeBuffer = this.device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(sizeBuffer, 0, new Uint32Array([size]));
-
-    // Create bind group layout and pipeline
     const bindGroupLayout = this.device.createBindGroupLayout({
       entries: [
         { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
@@ -128,18 +166,17 @@ class WebGPUBenchmarks {
       ],
     });
 
-    // Execute compute shader
     const commandEncoder = this.device.createCommandEncoder();
     const passEncoder = commandEncoder.beginComputePass();
     passEncoder.setPipeline(pipeline);
     passEncoder.setBindGroup(0, bindGroup);
-    passEncoder.dispatchWorkgroups(Math.ceil(size / 8), Math.ceil(size / 8));
+    const workgroupSize = label === 'Tiled' ? 16 : 8;
+    passEncoder.dispatchWorkgroups(Math.ceil(size / workgroupSize), Math.ceil(size / workgroupSize));
     passEncoder.end();
 
     this.device.queue.submit([commandEncoder.finish()]);
     await this.device.queue.onSubmittedWorkDone();
 
-    // Cleanup
     matrixABuffer.destroy();
     matrixBBuffer.destroy();
     resultBuffer.destroy();
@@ -148,13 +185,22 @@ class WebGPUBenchmarks {
     return true;
   }
 
+  _createBuffer(data, usage) {
+    const buffer = this.device.createBuffer({
+      size: data.byteLength,
+      usage: usage,
+      mappedAtCreation: true,
+    });
+    new (data instanceof Uint32Array ? Uint32Array : Float32Array)(buffer.getMappedRange()).set(data);
+    buffer.unmap();
+    return buffer;
+  }
+
   /**
    * Particle Simulation using WebGPU Compute Shader
    */
   async particleSimulation(numParticles = 10000, steps = 10) {
-    if (!this.isSupported) {
-      throw new Error('WebGPU not supported');
-    }
+    if (!this.isSupported) throw new Error('WebGPU not supported');
 
     const shaderCode = `
       struct Particle {
@@ -173,11 +219,8 @@ class WebGPUBenchmarks {
         }
 
         var particle = particles[index];
-        
-        // Update position
         particle.position = particle.position + particle.velocity * deltaTime;
         
-        // Boundary conditions
         if (particle.position.x < -1.0 || particle.position.x > 1.0) {
           particle.velocity.x = particle.velocity.x * -0.9;
         }
@@ -190,27 +233,16 @@ class WebGPUBenchmarks {
     `;
 
     const shaderModule = this.device.createShaderModule({ code: shaderCode });
-
-    // Create particle data
     const particleData = new Float32Array(numParticles * 4);
     for (let i = 0; i < numParticles; i++) {
-      particleData[i * 4 + 0] = Math.random() * 2 - 1; // x
-      particleData[i * 4 + 1] = Math.random() * 2 - 1; // y
-      particleData[i * 4 + 2] = (Math.random() - 0.5) * 0.02; // vx
-      particleData[i * 4 + 3] = (Math.random() - 0.5) * 0.02; // vy
+      particleData[i * 4 + 0] = Math.random() * 2 - 1;
+      particleData[i * 4 + 1] = Math.random() * 2 - 1;
+      particleData[i * 4 + 2] = (Math.random() - 0.5) * 0.02;
+      particleData[i * 4 + 3] = (Math.random() - 0.5) * 0.02;
     }
 
-    const particleBuffer = this.device.createBuffer({
-      size: particleData.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(particleBuffer, 0, particleData);
-
-    const deltaTimeBuffer = this.device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(deltaTimeBuffer, 0, new Float32Array([0.016]));
+    const particleBuffer = this._createBuffer(particleData, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+    const deltaTimeBuffer = this._createBuffer(new Float32Array([0.016]), GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
     const bindGroupLayout = this.device.createBindGroupLayout({
       entries: [
@@ -232,7 +264,6 @@ class WebGPUBenchmarks {
       ],
     });
 
-    // Run simulation for multiple steps
     for (let step = 0; step < steps; step++) {
       const commandEncoder = this.device.createCommandEncoder();
       const passEncoder = commandEncoder.beginComputePass();
@@ -244,11 +275,8 @@ class WebGPUBenchmarks {
     }
 
     await this.device.queue.onSubmittedWorkDone();
-
-    // Cleanup
     particleBuffer.destroy();
     deltaTimeBuffer.destroy();
-
     return true;
   }
 
@@ -256,9 +284,7 @@ class WebGPUBenchmarks {
    * Image Processing using WebGPU Compute Shader
    */
   async imageProcessing(width = 512, height = 512) {
-    if (!this.isSupported) {
-      throw new Error('WebGPU not supported');
-    }
+    if (!this.isSupported) throw new Error('WebGPU not supported');
 
     const shaderCode = `
       @group(0) @binding(0) var<storage, read> inputImage: array<vec4<f32>>;
@@ -276,7 +302,6 @@ class WebGPUBenchmarks {
           return;
         }
         
-        // Sobel edge detection
         let tl = inputImage[(y + 1u) * width + (x - 1u)].r;
         let tm = inputImage[(y + 1u) * width + x].r;
         let tr = inputImage[(y + 1u) * width + (x + 1u)].r;
@@ -295,34 +320,12 @@ class WebGPUBenchmarks {
     `;
 
     const shaderModule = this.device.createShaderModule({ code: shaderCode });
-
-    // Create dummy image data
     const imageSize = width * height;
-    const imageData = new Float32Array(imageSize * 4);
-    for (let i = 0; i < imageSize; i++) {
-      const val = Math.random();
-      imageData[i * 4 + 0] = val;
-      imageData[i * 4 + 1] = val;
-      imageData[i * 4 + 2] = val;
-      imageData[i * 4 + 3] = 1.0;
-    }
+    const imageData = new Float32Array(imageSize * 4).map(() => Math.random());
 
-    const inputBuffer = this.device.createBuffer({
-      size: imageData.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(inputBuffer, 0, imageData);
-
-    const outputBuffer = this.device.createBuffer({
-      size: imageData.byteLength,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    });
-
-    const dimensionsBuffer = this.device.createBuffer({
-      size: 8,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(dimensionsBuffer, 0, new Uint32Array([width, height]));
+    const inputBuffer = this._createBuffer(imageData, GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST);
+    const outputBuffer = this._createBuffer(new Float32Array(imageSize * 4), GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+    const dimensionsBuffer = this._createBuffer(new Uint32Array([width, height]), GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
     const bindGroupLayout = this.device.createBindGroupLayout({
       entries: [
@@ -356,11 +359,9 @@ class WebGPUBenchmarks {
     this.device.queue.submit([commandEncoder.finish()]);
     await this.device.queue.onSubmittedWorkDone();
 
-    // Cleanup
     inputBuffer.destroy();
     outputBuffer.destroy();
     dimensionsBuffer.destroy();
-
     return true;
   }
 
@@ -368,9 +369,7 @@ class WebGPUBenchmarks {
    * Ray Marching using WebGPU Compute Shader
    */
   async rayMarching(width = 256, height = 256, maxSteps = 50) {
-    if (!this.isSupported) {
-      throw new Error('WebGPU not supported');
-    }
+    if (!this.isSupported) throw new Error('WebGPU not supported');
 
     const shaderCode = `
       @group(0) @binding(0) var<storage, read_write> output: array<f32>;
@@ -392,14 +391,13 @@ class WebGPUBenchmarks {
           return;
         }
         
-        // Ray direction
         let uv = vec2<f32>(
           (f32(x) / f32(width) - 0.5) * 2.0,
           (f32(y) / f32(height) - 0.5) * 2.0
         );
         
-        let ro = vec3<f32>(0.0, 0.0, -3.0); // Ray origin
-        let rd = normalize(vec3<f32>(uv.x, uv.y, 1.0)); // Ray direction
+        let ro = vec3<f32>(0.0, 0.0, -3.0);
+        let rd = normalize(vec3<f32>(uv.x, uv.y, 1.0));
         
         var t = 0.0;
         var hit = 0.0;
@@ -414,9 +412,7 @@ class WebGPUBenchmarks {
           }
           
           t = t + max(0.01, d);
-          if (t > 10.0) {
-            break;
-          }
+          if (t > 10.0) { break; }
         }
         
         output[y * width + x] = hit;
@@ -424,24 +420,9 @@ class WebGPUBenchmarks {
     `;
 
     const shaderModule = this.device.createShaderModule({ code: shaderCode });
-
-    const outputSize = width * height;
-    const outputBuffer = this.device.createBuffer({
-      size: outputSize * 4,
-      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC,
-    });
-
-    const dimensionsBuffer = this.device.createBuffer({
-      size: 8,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(dimensionsBuffer, 0, new Uint32Array([width, height]));
-
-    const maxStepsBuffer = this.device.createBuffer({
-      size: 4,
-      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-    });
-    this.device.queue.writeBuffer(maxStepsBuffer, 0, new Uint32Array([maxSteps]));
+    const outputBuffer = this._createBuffer(new Float32Array(width * height * 4), GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC);
+    const dimensionsBuffer = this._createBuffer(new Uint32Array([width, height]), GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
+    const maxStepsBuffer = this._createBuffer(new Uint32Array([maxSteps]), GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST);
 
     const bindGroupLayout = this.device.createBindGroupLayout({
       entries: [
@@ -475,11 +456,9 @@ class WebGPUBenchmarks {
     this.device.queue.submit([commandEncoder.finish()]);
     await this.device.queue.onSubmittedWorkDone();
 
-    // Cleanup
     outputBuffer.destroy();
     dimensionsBuffer.destroy();
     maxStepsBuffer.destroy();
-
     return true;
   }
 
@@ -489,80 +468,31 @@ class WebGPUBenchmarks {
   async runAll() {
     const initialized = await this.initialize();
     if (!initialized) {
-      return {
-        error: 'WebGPU not supported',
-        results: []
-      };
+      return { error: 'WebGPU not supported', results: [] };
     }
 
     const results = [];
+    const runBench = async (name, fn, ...args) => {
+      try {
+        const start = performance.now();
+        await fn.apply(this, args);
+        const time = performance.now() - start;
+        results.push({ name, opsPerSec: 1000 / time, timeMs: time });
+      } catch (e) { console.error(`${name} failed:`, e); }
+    };
 
-    // Matrix Multiply
-    try {
-      const matrixStart = performance.now();
-      await this.matrixMultiply(256);
-      const matrixTime = performance.now() - matrixStart;
-      results.push({
-        name: 'Matrix Multiply WebGPU (256x256)',
-        opsPerSec: 1000 / matrixTime,
-        timeMs: matrixTime
-      });
-    } catch (e) {
-      console.error('Matrix multiply failed:', e);
-    }
+    // 1. Matrix Ops (Comparison)
+    await runBench('Matrix Mult (Naive Global)', this.matrixMultiplyNaive, 512);
+    await runBench('Matrix Mult (Tiled Shared)', this.matrixMultiplyTiled, 512);
 
-    // Particle Simulation
-    try {
-      const particleStart = performance.now();
-      await this.particleSimulation(10000, 10);
-      const particleTime = performance.now() - particleStart;
-      results.push({
-        name: 'Particle Simulation WebGPU (10000 particles, 10 steps)',
-        opsPerSec: 1000 / particleTime,
-        timeMs: particleTime
-      });
-    } catch (e) {
-      console.error('Particle simulation failed:', e);
-    }
-
-    // Image Processing
-    try {
-      const imageStart = performance.now();
-      await this.imageProcessing(512, 512);
-      const imageTime = performance.now() - imageStart;
-      results.push({
-        name: 'Image Processing WebGPU (512x512)',
-        opsPerSec: 1000 / imageTime,
-        timeMs: imageTime
-      });
-    } catch (e) {
-      console.error('Image processing failed:', e);
-    }
-
-    // Ray Marching
-    try {
-      const rayStart = performance.now();
-      await this.rayMarching(256, 256, 50);
-      const rayTime = performance.now() - rayStart;
-      results.push({
-        name: 'Ray Marching WebGPU (256x256, 50 steps)',
-        opsPerSec: 1000 / rayTime,
-        timeMs: rayTime
-      });
-    } catch (e) {
-      console.error('Ray marching failed:', e);
-    }
+    // 2. Compute Workloads
+    await runBench('Physics Simulation', this.particleSimulation, 10000, 10);
+    await runBench('Image Processing', this.imageProcessing, 512, 512);
+    await runBench('Ray Marching', this.rayMarching, 256, 256, 50);
 
     return { results };
   }
 }
 
-// Export for use in modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = WebGPUBenchmarks;
-}
-
-// Make available globally for React components
-if (typeof window !== 'undefined') {
-  window.WebGPUBenchmarks = WebGPUBenchmarks;
-}
+if (typeof module !== 'undefined') module.exports = WebGPUBenchmarks;
+if (typeof window !== 'undefined') window.WebGPUBenchmarks = WebGPUBenchmarks;
