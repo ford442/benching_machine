@@ -1,4 +1,8 @@
 const Benchmark = require('benchmark');
+const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 /**
  * Compilation Time Benchmark Module
@@ -88,6 +92,46 @@ class CompilationBenchmark {
   }
 
   /**
+   * TypeScript native compiler (tsgo) compilation
+   * Creates a sample TSX file and compiles it using tsgo
+   */
+  tsgoCompilation() {
+    const tsgoPath = path.resolve(
+      __dirname,
+      '../../node_modules/.bin/tsgo'
+    );
+
+    if (!fs.existsSync(tsgoPath)) {
+      throw new Error('tsgo not found. Install @typescript/native-preview as a dev dependency.');
+    }
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tsgo-bench-'));
+    const tsxFile = path.join(tmpDir, 'sample.tsx');
+
+    try {
+      fs.writeFileSync(tsxFile, [
+        'import React from "react";',
+        'interface Props { name: string; count: number; }',
+        'const Greeting: React.FC<Props> = ({ name, count }) => (',
+        '  <div>{name}: {count * 2}</div>',
+        ');',
+        'export default Greeting;'
+      ].join('\n'));
+
+      const result = spawnSync(tsgoPath, ['--noEmit', '--jsx', 'react', tsxFile], {
+        encoding: 'utf8',
+        timeout: 30000
+      });
+
+      if (result.error) {
+        throw result.error;
+      }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  }
+
+  /**
    * Run all compilation benchmarks
    */
   async run() {
@@ -104,6 +148,9 @@ class CompilationBenchmark {
         })
         .add('WASM Compilation (Real)', () => {
           this.wasmCompilation();
+        })
+        .add('tsgo Compilation (TSX)', () => {
+          this.tsgoCompilation();
         })
         .on('cycle', (event) => {
           const benchmark = event.target;

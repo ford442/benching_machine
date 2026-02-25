@@ -100,6 +100,7 @@ program
     console.log('  - Arrow vs Regular: Compare function types');
     console.log('  - Dynamic Function Creation: Runtime function generation');
     console.log('  - WASM Compilation: Simulate WebAssembly compilation');
+    console.log('  - tsgo Compilation: TypeScript native compiler (TSX file)');
     
     console.log(chalk.yellow('\nGPU Benchmarks:'));
     console.log('  - Matrix Multiply CPU: 256x256 matrix multiplication (baseline)');
