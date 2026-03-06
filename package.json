@@ -42,7 +42,9 @@
     "assemblyscript": "^0.28.9"
   },
   "overrides": {
-    "@typescript/native-preview": "npm:typescript@latest"
+    "assemblyscript": {
+      "@typescript/native-preview": "npm:typescript@latest"
+    }
   },
   "browserslist": {
     "production": [
