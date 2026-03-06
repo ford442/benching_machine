@@ -41,6 +41,9 @@
     "@typescript/native-preview": "^0.0.1",
     "assemblyscript": "^0.28.9"
   },
+  "overrides": {
+    "@typescript/native-preview": "npm:typescript@latest"
+  },
   "browserslist": {
     "production": [
       ">0.2%",
