@@ -1,0 +1,403 @@
+.compiler-comparison {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: 'Courier New', monospace;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+/* Chart tabs */
+.chart-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.chart-tab {
+  padding: 6px 14px;
+  border: 1px solid #333;
+  background: #111;
+  color: #aaa;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  transition: all 0.15s;
+}
+
+.chart-tab:hover {
+  border-color: #555;
+  color: #ddd;
+}
+
+.chart-tab.active {
+  border-color: #00d4ff;
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.08);
+}
+
+/* Snapshot toolbar */
+.snapshot-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.snap-btn {
+  padding: 5px 12px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  background: #161620;
+  border: 1px solid #333;
+  color: #aaa;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.snap-btn:hover { border-color: #00d4ff; color: #00d4ff; }
+.snap-btn.has-snap { border-color: #2ecc71; color: #2ecc71; }
+
+.snap-label {
+  font-size: 0.72rem;
+  color: #555;
+  margin-left: 4px;
+}
+
+/* Empty state */
+.empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 300px;
+  color: #444;
+  font-size: 0.9rem;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ── Chart A: Grouped Bar Chart ─────────────────────────────────── */
+.chart-section {
+  margin-bottom: 32px;
+}
+
+.chart-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #555;
+  margin-bottom: 14px;
+  border-bottom: 1px solid #1a1a2e;
+  padding-bottom: 6px;
+}
+
+.grouped-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.test-group {
+  background: #0d0d18;
+  border: 1px solid #1a1a2e;
+  padding: 12px;
+}
+
+.test-group-label {
+  font-size: 0.7rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.bar-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+}
+
+.bar-label {
+  width: 160px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: #bbb;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bar-track {
+  flex: 1;
+  height: 14px;
+  background: #111;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.bar-value {
+  position: absolute;
+  right: -58px;
+  font-size: 0.67rem;
+  color: #777;
+  white-space: nowrap;
+}
+
+.delta-badge {
+  margin-left: 4px;
+  font-size: 0.62rem;
+  padding: 1px 4px;
+}
+
+.delta-badge.up   { color: #2ecc71; }
+.delta-badge.down { color: #e74c3c; }
+
+/* ── Chart B: Speedup ───────────────────────────────────────────── */
+.speedup-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.speedup-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 22px;
+}
+
+.speedup-label {
+  width: 170px;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: #bbb;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.speedup-track {
+  flex: 1;
+  height: 14px;
+  background: #111;
+  position: relative;
+}
+
+.speedup-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+.speedup-value {
+  position: absolute;
+  right: -52px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.67rem;
+  color: #777;
+  white-space: nowrap;
+}
+
+.baseline-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #333;
+  pointer-events: none;
+}
+
+.family-divider {
+  height: 1px;
+  background: #1a1a2e;
+  margin: 8px 0;
+}
+
+/* ── Chart C: Waterfall ─────────────────────────────────────────── */
+.waterfall-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.waterfall-group {
+  background: #0d0d18;
+  border: 1px solid #1a1a2e;
+  padding: 12px;
+}
+
+.waterfall-group-label {
+  font-size: 0.68rem;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+
+.waterfall-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.waterfall-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 24px;
+}
+
+.waterfall-step-label {
+  width: 190px;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  color: #bbb;
+  text-align: right;
+}
+
+.waterfall-track {
+  flex: 1;
+  height: 16px;
+  background: #111;
+  position: relative;
+}
+
+.waterfall-fill {
+  height: 100%;
+  transition: width 0.6s ease;
+}
+
+.waterfall-gain {
+  position: absolute;
+  right: -70px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: #2ecc71;
+  white-space: nowrap;
+}
+
+/* ── Chart D: Heatmap ───────────────────────────────────────────── */
+.heatmap-wrapper {
+  overflow-x: auto;
+}
+
+.heatmap-grid {
+  display: grid;
+  gap: 2px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.heatmap-header-row {
+  display: contents;
+}
+
+.heatmap-corner { /* empty top-left cell */
+  background: transparent;
+}
+
+.heatmap-col-label {
+  font-size: 0.62rem;
+  color: #555;
+  text-align: center;
+  padding: 4px 6px;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  height: 80px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heatmap-row {
+  display: contents;
+}
+
+.heatmap-row-label {
+  font-size: 0.68rem;
+  color: #bbb;
+  padding: 3px 8px 3px 0;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.heatmap-cell {
+  width: 60px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  color: rgba(255,255,255,0.6);
+  position: relative;
+  cursor: default;
+  transition: filter 0.1s;
+}
+
+.heatmap-cell:hover {
+  filter: brightness(1.4);
+  z-index: 2;
+  outline: 1px solid rgba(255,255,255,0.3);
+}
+
+.heatmap-cell .cell-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a2e;
+  border: 1px solid #333;
+  padding: 4px 8px;
+  font-size: 0.62rem;
+  color: #ddd;
+  white-space: nowrap;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.heatmap-cell:hover .cell-tooltip {
+  display: block;
+}
+
+/* Legend */
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 0.65rem;
+  color: #555;
+}
+
+.legend-gradient {
+  width: 100px;
+  height: 10px;
+  background: linear-gradient(to right, #111, #00d4ff);
+  border: 1px solid #222;
+}
