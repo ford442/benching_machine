@@ -2,32 +2,98 @@
 
 const configurations = [
   // --- A. Baseline Web ---
-  { id: 'js_inline', name: 'Inline Script', desc: 'Standard JS (HTML)', color: '#f1e05a' },
-  { id: 'js_external', name: 'External File', desc: 'Standard JS (.js)', color: '#f0db4f' },
-  { id: 'js_wasm_std', name: 'JS + WASM', desc: 'Vanilla WASM Loading', color: '#654ff0' },
+  {
+    id: 'js_inline', name: 'Inline Script', desc: 'Standard JS (HTML)', color: '#f1e05a',
+    compilation: { family: 'js', toolchain: 'V8 JIT', backend: 'V8', language: 'JavaScript', optLevel: 'none', flags: [], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'js_external', name: 'External File', desc: 'Standard JS (.js)', color: '#f0db4f',
+    compilation: { family: 'js', toolchain: 'V8 JIT', backend: 'V8', language: 'JavaScript', optLevel: 'none', flags: [], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'js_wasm_std', name: 'JS + WASM', desc: 'Vanilla WASM Loading', color: '#654ff0',
+    compilation: { family: 'wasm', toolchain: 'WebAssembly.compile()', backend: 'Browser WASM engine', language: 'WebAssembly', optLevel: 'none', flags: [], postProcess: [], status: 'real' },
+  },
 
   // --- B. JS Optimizers ---
-  { id: 'js_terser', name: 'JS + Terser', desc: 'Minified & Mangled', color: '#fab1a0' },
-  { id: 'js_closure', name: 'Closure Compiler', desc: 'Advanced Optimization', color: '#e17055' },
+  {
+    id: 'js_terser', name: 'JS + Terser', desc: 'Minified & Mangled', color: '#fab1a0',
+    compilation: { family: 'js', toolchain: 'Terser', backend: 'V8', language: 'JavaScript', optLevel: 'minify+mangle', flags: ['--compress', '--mangle'], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'js_closure', name: 'Closure Compiler', desc: 'Advanced Optimization', color: '#e17055',
+    compilation: { family: 'js', toolchain: 'Google Closure Compiler', backend: 'V8', language: 'JavaScript', optLevel: 'ADVANCED', flags: ['--compilation_level ADVANCED_OPTIMIZATIONS'], postProcess: [], status: 'simulated' },
+  },
+
+  // --- B2. Modern JS Bundler/Transpiler Tools ---
+  {
+    id: 'js_esbuild', name: 'esbuild', desc: 'Go-based Bundler/Minifier', color: '#ffcc00',
+    compilation: { family: 'js', toolchain: 'esbuild', backend: 'Go (native)', language: 'JavaScript', optLevel: 'minify', flags: ['--minify', '--bundle'], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'js_swc', name: 'SWC', desc: 'Rust-based JS Transpiler', color: '#ff6b35',
+    compilation: { family: 'js', toolchain: 'SWC', backend: 'Rust/LLVM', language: 'JavaScript', optLevel: 'minify', flags: ['--minify'], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'js_tsc', name: 'TypeScript (tsc)', desc: 'Official TS Compiler', color: '#3178c6',
+    compilation: { family: 'js', toolchain: 'tsc', backend: 'V8', language: 'TypeScript', optLevel: 'ES2020', flags: ['--target ES2020', '--strict'], postProcess: [], status: 'simulated' },
+  },
 
   // --- C. Data & Compilers ---
-  { id: 'js_bigint', name: 'JS BigInt', desc: '64-bit Integer Math', color: '#f7df1e' },
-  { id: 'wasm_rust', name: 'Rust (wasm-pack)', desc: 'LLVM/Rust Toolchain', color: '#dea584' },
-  { id: 'wasm_cheerp', name: 'Cheerp (C++)', desc: 'C++ Toolchain', color: '#d63031' },
-  
+  {
+    id: 'js_bigint', name: 'JS BigInt', desc: '64-bit Integer Math', color: '#f7df1e',
+    compilation: { family: 'js', toolchain: 'V8 JIT', backend: 'V8', language: 'JavaScript', optLevel: 'none', flags: [], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'wasm_rust', name: 'Rust (wasm-pack)', desc: 'LLVM/Rust Toolchain', color: '#dea584',
+    compilation: { family: 'wasm', toolchain: 'wasm-pack', backend: 'LLVM', language: 'Rust', optLevel: 'O3', flags: ['--release'], postProcess: [], status: 'real' },
+  },
+  {
+    id: 'wasm_cheerp', name: 'Cheerp (C++)', desc: 'C++ Toolchain', color: '#d63031',
+    compilation: { family: 'wasm', toolchain: 'Cheerp', backend: 'Cheerp/LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-target cheerp-wasm'], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'wasm_emcc', name: 'Emscripten (C)', desc: 'Pure C→WASM Baseline', color: '#a29bfe',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C', optLevel: 'O3', flags: ['-O3', '-s WASM=1'], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'wasm_javy', name: 'Javy (JS→WASM)', desc: 'JS via QuickJS in WASM', color: '#fd79a8',
+    compilation: { family: 'wasm', toolchain: 'Javy', backend: 'QuickJS + WASM', language: 'JavaScript', optLevel: 'none', flags: [], postProcess: [], status: 'simulated' },
+  },
+
   // MERGED: AssemblyScript Suite
-  { id: 'wasm_as', name: 'AssemblyScript Suite', desc: 'Base vs Optimized vs AOT', color: '#007acc' },
+  {
+    id: 'wasm_as', name: 'AssemblyScript Suite', desc: 'Base vs Optimized vs AOT', color: '#007acc',
+    compilation: { family: 'wasm', toolchain: 'asc', backend: 'Binaryen', language: 'AssemblyScript', optLevel: 'O3s', flags: ['-O3', '--runtime minimal'], postProcess: ['wasm-opt -O3', 'WasmEdge AOT'], status: 'real' },
+  },
 
   // --- E. Hardware Acceleration ---
-  { id: 'wasm_simd', name: 'WASM + SIMD', desc: 'Vector Operations', color: '#2ecc71' },
-  { id: 'wasm_threads', name: 'WASM + Threads', desc: 'SharedArrayBuffer', color: '#e84393' },
-
-  { id: 'wasm_openmp', name: 'WASM + OpenMP', desc: 'OMP Runtime + libomp', color: '#ff4757' },
-  { id: 'wasm_max', name: 'WASM Max', desc: 'Threads + SIMD (No OMP)', color: '#ff0000' },
+  {
+    id: 'wasm_simd', name: 'WASM + SIMD', desc: 'Vector Operations', color: '#2ecc71',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-msimd128', '-s WASM=1'], postProcess: [], status: 'real' },
+  },
+  {
+    id: 'wasm_threads', name: 'WASM + Threads', desc: 'SharedArrayBuffer', color: '#e84393',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-s USE_PTHREADS=1', '-s WASM=1'], postProcess: [], status: 'real' },
+  },
+  {
+    id: 'wasm_openmp', name: 'WASM + OpenMP', desc: 'OMP Runtime + libomp', color: '#ff4757',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-fopenmp', '-s USE_PTHREADS=1'], postProcess: [], status: 'real' },
+  },
+  {
+    id: 'wasm_max', name: 'WASM Max', desc: 'Threads + SIMD (No OMP)', color: '#ff0000',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-msimd128', '-s USE_PTHREADS=1'], postProcess: ['wasm-opt -O3'], status: 'real' },
+  },
 
   // --- F. GPU Compute ---
-  { id: 'webgl_compute', name: 'WebGL Compute', desc: 'Fragment Shader Compute', color: '#00d4ff' },
-  { id: 'webgpu_compute', name: 'WebGPU Compute', desc: 'WGSL Compute Shaders', color: '#8e44ad' },
+  {
+    id: 'webgl_compute', name: 'WebGL Compute', desc: 'Fragment Shader Compute', color: '#00d4ff',
+    compilation: { family: 'gpu', toolchain: 'GLSL→GPU driver', backend: 'GPU (fragment shader)', language: 'GLSL ES 3.0', optLevel: 'driver', flags: [], postProcess: [], status: 'real' },
+  },
+  {
+    id: 'webgpu_compute', name: 'WebGPU Compute', desc: 'WGSL Compute Shaders', color: '#8e44ad',
+    compilation: { family: 'gpu', toolchain: 'WGSL→GPU driver', backend: 'GPU (compute shader)', language: 'WGSL', optLevel: 'driver', flags: [], postProcess: [], status: 'real' },
+  },
 ];
 
 const generateResult = (baseScore, variance, name) => ({
@@ -44,6 +110,13 @@ function getMultiplier(configId) {
     case 'js_terser': return 1.05;
     case 'js_closure': return 1.4;
     case 'js_bigint': return 0.8;
+    // Modern JS bundlers (similar runtime to Terser, faster build time)
+    case 'js_esbuild': return 1.08;
+    case 'js_swc': return 1.07;
+    case 'js_tsc': return 1.02;
+    // Additional WASM toolchains
+    case 'wasm_emcc': return 2.4;
+    case 'wasm_javy': return 0.6; // JS-in-WASM overhead
     case 'wasm_rust': return 2.5;
     case 'wasm_cheerp': return 2.45;
     case 'wasm_as': return 2.3;
