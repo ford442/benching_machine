@@ -85,6 +85,16 @@ const configurations = [
     compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-msimd128', '-s USE_PTHREADS=1'], postProcess: ['wasm-opt -O3'], status: 'real' },
   },
 
+  // --- G. WASM64 & Filesystem ---
+  {
+    id: 'wasm64', name: 'WASM64', desc: '64-bit Memory Address Space', color: '#1abc9c',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-s WASM=2', '-s USE_PTHREADS=1'], postProcess: [], status: 'simulated' },
+  },
+  {
+    id: 'wasmfs', name: 'WASMFS', desc: 'In-Memory Filesystem for WASM', color: '#16a085',
+    compilation: { family: 'wasm', toolchain: 'emcc', backend: 'LLVM', language: 'C++', optLevel: 'O3', flags: ['-O3', '-s WASMFS=1', '-s USE_PTHREADS=1'], postProcess: [], status: 'simulated' },
+  },
+
   // --- F. GPU Compute ---
   {
     id: 'webgl_compute', name: 'WebGL Compute', desc: 'Fragment Shader Compute', color: '#00d4ff',
@@ -123,11 +133,13 @@ function getMultiplier(configId) {
     case 'wasm_simd': return 3.5;
     case 'wasm_threads': return 4.0;
     case 'wasm_openmp': return 4.3;
-    case 'wasm_max': return 5.5;
+    case 'wasm_max': return 4.5; // Threads + SIMD can be slower than OpenMP due to scheduling overhead
+    case 'wasm64': return 2.3; // Same as vanilla WASM, memory addressing overhead minimal
+    case 'wasmfs': return 2.0; // Filesystem abstraction overhead
 
-    // GPU: Huge multiplier for supported tasks
-    case 'webgl_compute': return 15.0;
-    case 'webgpu_compute': return 25.0;
+    // GPU: Realistic multipliers (10-20x for certain workloads, not all)
+    case 'webgl_compute': return 8.0;
+    case 'webgpu_compute': return 12.0;
 
     default: return 1.0;
   }
@@ -135,7 +147,7 @@ function getMultiplier(configId) {
 
 async function runConfig(configId) {
   const m = getMultiplier(configId);
-  const supportsWasmThreads = ['wasm_threads','wasm_simd','wasm_max'].includes(configId);
+  const supportsWasmThreads = ['wasm_threads','wasm_simd','wasm_max','wasm64','wasmfs'].includes(configId);
   const supportsOpenMP = ['wasm_openmp', 'wasm_max'].includes(configId);
   const isGPU = ['webgl_compute', 'webgpu_compute'].includes(configId);
 

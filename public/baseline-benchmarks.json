@@ -1,0 +1,151 @@
+{
+  "baseline_cpu": {
+    "timestamp": "2026-05-05T12:00:00Z",
+    "metadata": {
+      "machine": "Standard CPU (no GPU)",
+      "cpu": "Intel i7/AMD Ryzen 7",
+      "ram": "16GB",
+      "os": "Linux/macOS/Windows",
+      "notes": "Baseline CPU-only performance for comparison"
+    },
+    "configurations": [
+      {
+        "id": "js_inline",
+        "name": "Inline Script",
+        "desc": "Standard JS (HTML)",
+        "color": "#f1e05a",
+        "compilation": { "family": "js", "toolchain": "V8 JIT", "backend": "V8", "language": "JavaScript", "optLevel": "none", "flags": [], "postProcess": [], "status": "simulated" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 120000, "stats": { "mean": 0.12, "deviation": 0.02, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 85000, "stats": { "mean": 0.085, "deviation": 0.01, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 22500, "stats": { "mean": 0.0225, "deviation": 0.008, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 24000, "stats": { "mean": 0.024, "deviation": 0.01, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "wasm_rust",
+        "name": "Rust (wasm-pack)",
+        "desc": "LLVM/Rust Toolchain",
+        "color": "#dea584",
+        "compilation": { "family": "wasm", "toolchain": "wasm-pack", "backend": "LLVM", "language": "Rust", "optLevel": "O3", "flags": ["--release"], "postProcess": [], "status": "real" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 300000, "stats": { "mean": 0.3, "deviation": 0.05, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 212500, "stats": { "mean": 0.2125, "deviation": 0.025, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 56250, "stats": { "mean": 0.05625, "deviation": 0.02, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 132000, "stats": { "mean": 0.132, "deviation": 0.03, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "wasm_openmp",
+        "name": "WASM + OpenMP",
+        "desc": "OMP Runtime + libomp",
+        "color": "#ff4757",
+        "compilation": { "family": "wasm", "toolchain": "emcc", "backend": "LLVM", "language": "C++", "optLevel": "O3", "flags": ["-O3", "-fopenmp", "-s USE_PTHREADS=1"], "postProcess": [], "status": "real" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 312000, "stats": { "mean": 0.312, "deviation": 0.05, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 220500, "stats": { "mean": 0.2205, "deviation": 0.025, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 72000, "stats": { "mean": 0.072, "deviation": 0.02, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 264000, "stats": { "mean": 0.264, "deviation": 0.05, "margin": 2 } },
+          { "name": "Physics Simulation", "opsPerSec": 60000, "stats": { "mean": 0.06, "deviation": 0.01, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "wasm_max",
+        "name": "WASM Max",
+        "desc": "Threads + SIMD (No OMP)",
+        "color": "#ff0000",
+        "compilation": { "family": "wasm", "toolchain": "emcc", "backend": "LLVM", "language": "C++", "optLevel": "O3", "flags": ["-O3", "-msimd128", "-s USE_PTHREADS=1"], "postProcess": ["wasm-opt -O3"], "status": "real" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 270000, "stats": { "mean": 0.27, "deviation": 0.05, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 202500, "stats": { "mean": 0.2025, "deviation": 0.025, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 81000, "stats": { "mean": 0.081, "deviation": 0.02, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 231000, "stats": { "mean": 0.231, "deviation": 0.05, "margin": 2 } },
+          { "name": "Physics Simulation", "opsPerSec": 72000, "stats": { "mean": 0.072, "deviation": 0.01, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "wasm64",
+        "name": "WASM64",
+        "desc": "64-bit Memory Address Space",
+        "color": "#1abc9c",
+        "compilation": { "family": "wasm", "toolchain": "emcc", "backend": "LLVM", "language": "C++", "optLevel": "O3", "flags": ["-O3", "-s WASM=2", "-s USE_PTHREADS=1"], "postProcess": [], "status": "simulated" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 276000, "stats": { "mean": 0.276, "deviation": 0.05, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 195750, "stats": { "mean": 0.19575, "deviation": 0.025, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 54000, "stats": { "mean": 0.054, "deviation": 0.02, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 132000, "stats": { "mean": 0.132, "deviation": 0.03, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "wasmfs",
+        "name": "WASMFS",
+        "desc": "In-Memory Filesystem for WASM",
+        "color": "#16a085",
+        "compilation": { "family": "wasm", "toolchain": "emcc", "backend": "LLVM", "language": "C++", "optLevel": "O3", "flags": ["-O3", "-s WASMFS=1", "-s USE_PTHREADS=1"], "postProcess": [], "status": "simulated" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 240000, "stats": { "mean": 0.24, "deviation": 0.05, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 170000, "stats": { "mean": 0.17, "deviation": 0.025, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 45000, "stats": { "mean": 0.045, "deviation": 0.02, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 120000, "stats": { "mean": 0.12, "deviation": 0.03, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 130000, "stats": { "mean": 0.13, "deviation": 0.01, "margin": 2 } }
+        ]
+      }
+    ]
+  },
+  "baseline_gpu": {
+    "timestamp": "2026-05-05T12:00:00Z",
+    "metadata": {
+      "machine": "GPU-Enabled (NVIDIA RTX 3080 / AMD RX 6700)",
+      "cpu": "Intel i7/AMD Ryzen 7",
+      "gpu": "NVIDIA RTX 3080 or equivalent",
+      "ram": "16GB",
+      "os": "Linux/Windows",
+      "notes": "GPU-accelerated benchmark performance"
+    },
+    "configurations": [
+      {
+        "id": "js_inline",
+        "name": "Inline Script",
+        "desc": "Standard JS (HTML)",
+        "color": "#f1e05a",
+        "compilation": { "family": "js", "toolchain": "V8 JIT", "backend": "V8", "language": "JavaScript", "optLevel": "none", "flags": [], "postProcess": [], "status": "simulated" },
+        "tests": [
+          { "name": "Fibonacci (Base)", "opsPerSec": 120000, "stats": { "mean": 0.12, "deviation": 0.02, "margin": 2 } },
+          { "name": "Prime Check", "opsPerSec": 85000, "stats": { "mean": 0.085, "deviation": 0.01, "margin": 2 } },
+          { "name": "Matrix Mult (WASM Threads)", "opsPerSec": 22500, "stats": { "mean": 0.0225, "deviation": 0.008, "margin": 2 } },
+          { "name": "Matrix Mult (OpenMP SIMD)", "opsPerSec": 24000, "stats": { "mean": 0.024, "deviation": 0.01, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "webgl_compute",
+        "name": "WebGL Compute",
+        "desc": "Fragment Shader Compute",
+        "color": "#00d4ff",
+        "compilation": { "family": "gpu", "toolchain": "GLSL→GPU driver", "backend": "GPU (fragment shader)", "language": "GLSL ES 3.0", "optLevel": "driver", "flags": [], "postProcess": [], "status": "real" },
+        "tests": [
+          { "name": "Matrix Mult (WebGL)", "opsPerSec": 360000, "stats": { "mean": 0.36, "deviation": 0.05, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 100000, "stats": { "mean": 0.1, "deviation": 0.01, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "webgpu_compute",
+        "name": "WebGPU Compute",
+        "desc": "WGSL Compute Shaders",
+        "color": "#8e44ad",
+        "compilation": { "family": "gpu", "toolchain": "WGSL→GPU driver", "backend": "GPU (compute shader)", "language": "WGSL", "optLevel": "driver", "flags": [], "postProcess": [], "status": "real" },
+        "tests": [
+          { "name": "Matrix Mult (Naive Global)", "opsPerSec": 500000, "stats": { "mean": 0.5, "deviation": 0.05, "margin": 2 } },
+          { "name": "Matrix Mult (Tiled Shared)", "opsPerSec": 2500000, "stats": { "mean": 2.5, "deviation": 0.1, "margin": 2 } },
+          { "name": "Physics Simulation", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.02, "margin": 2 } },
+          { "name": "Startup/Load Efficiency", "opsPerSec": 80000, "stats": { "mean": 0.08, "deviation": 0.01, "margin": 2 } }
+        ]
+      }
+    ]
+  }
+}
