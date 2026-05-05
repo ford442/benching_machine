@@ -35,6 +35,10 @@ const configurations = [
   { id: 'wasm_openmp',  name: 'WASM + OpenMP',         desc: 'OMP Runtime + libomp',        color: '#ff4757', compilation: { family: 'wasm', toolchain: 'emcc',                    backend: 'LLVM',                 language: 'C++',         optLevel: 'O3',                flags: ['-O3', '-fopenmp', '-s USE_PTHREADS=1'],    postProcess: [],                         status: 'real'      } },
   { id: 'wasm_max',     name: 'WASM Max',              desc: 'Threads + SIMD (No OMP)',     color: '#ff0000', compilation: { family: 'wasm', toolchain: 'emcc',                    backend: 'LLVM',                 language: 'C++',         optLevel: 'O3',                flags: ['-O3', '-msimd128', '-s USE_PTHREADS=1'],   postProcess: ['wasm-opt -O3'],           status: 'real'      } },
 
+  // --- G. WASM64 & Filesystem ---
+  { id: 'wasm64',      name: 'WASM64',               desc: '64-bit Memory Address Space', color: '#1abc9c', compilation: { family: 'wasm', toolchain: 'emcc',                    backend: 'LLVM',                 language: 'C++',         optLevel: 'O3',                flags: ['-O3', '-s WASM=2', '-s USE_PTHREADS=1'],   postProcess: [],                         status: 'simulated' } },
+  { id: 'wasmfs',      name: 'WASMFS',              desc: 'In-Memory Filesystem',        color: '#16a085', compilation: { family: 'wasm', toolchain: 'emcc',                    backend: 'LLVM',                 language: 'C++',         optLevel: 'O3',                flags: ['-O3', '-s WASMFS=1', '-s USE_PTHREADS=1'], postProcess: [],                         status: 'simulated' } },
+
   // --- F. GPU Compute ---
   { id: 'webgl_compute',  name: 'WebGL Compute',       desc: 'Fragment Shader Compute',     color: '#00d4ff', compilation: { family: 'gpu',  toolchain: 'GLSL→GPU driver',         backend: 'GPU (fragment shader)',language: 'GLSL ES 3.0', optLevel: 'driver',            flags: [],                                          postProcess: [],                         status: 'real'      } },
   { id: 'webgpu_compute', name: 'WebGPU Compute',      desc: 'WGSL Compute Shaders',        color: '#8e44ad', compilation: { family: 'gpu',  toolchain: 'WGSL→GPU driver',         backend: 'GPU (compute shader)', language: 'WGSL',       optLevel: 'driver',            flags: [],                                          postProcess: [],                         status: 'real'      } },
@@ -52,7 +56,7 @@ const generateResult = (baseScore, variance, name) => ({
 });
 
 // Define WASM-supported configs (attempt real WASM load before falling back to simulation)
-const wasmConfigs = ['wasm_rust', 'wasm_cheerp', 'wasm_as', 'wasm_openmp', 'wasm_max', 'wasm_simd', 'wasm_threads', 'wasm_emcc', 'wasm_javy'];
+const wasmConfigs = ['wasm_rust', 'wasm_cheerp', 'wasm_as', 'wasm_openmp', 'wasm_max', 'wasm_simd', 'wasm_threads', 'wasm_emcc', 'wasm_javy', 'wasm64', 'wasmfs'];
 
 async function runWasmBenchmark(wasmModule, configId) {
   const numIterations = 10000;
@@ -153,9 +157,11 @@ const mockRunConfig = async (configId) => {
       case 'wasm_simd': m = 3.5; break;
       case 'wasm_threads': m = 4.0; break;
       case 'wasm_openmp': m = 4.3; break;
-      case 'wasm_max': m = 5.5; break;
-      case 'webgl_compute': m = 15.0; break;
-      case 'webgpu_compute': m = 25.0; break;
+      case 'wasm_max': m = 4.5; break;
+      case 'wasm64': m = 2.3; break;
+      case 'wasmfs': m = 2.0; break;
+      case 'webgl_compute': m = 8.0; break;
+      case 'webgpu_compute': m = 12.0; break;
       default: m = 1.0;
     }
     
@@ -243,6 +249,32 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
       setProgress('GPU Complete');
   };
 
+  const loadBaselineBenchmarks = async (scenario = 'baseline_cpu') => {
+    try {
+      setIsRunning(true);
+      setProgress(`Loading ${scenario} baseline...`);
+      const response = await fetch('/baseline-benchmarks.json');
+      const data = await response.json();
+      const baseline = data[scenario];
+      if (!baseline) {
+        setProgress('Baseline scenario not found');
+        setIsRunning(false);
+        return;
+      }
+      setBenchmarkData({
+        timestamp: baseline.timestamp,
+        configurations: baseline.configurations
+      });
+      setProgress(`✓ Loaded ${baseline.metadata.machine}`);
+      setTimeout(() => setProgress(''), 3000);
+    } catch (error) {
+      console.error('Failed to load baseline:', error);
+      setProgress('Error loading baseline');
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <div className="benchmark-runner">
       <div className="runner-card">
@@ -254,6 +286,14 @@ function BenchmarkRunner({ setBenchmarkData, isRunning, setIsRunning }) {
           <button className="run-button" onClick={runGPUBenchmarks} disabled={isRunning}
             style={{ marginLeft: '10px', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
             {isRunning ? '🎮 Testing...' : '🎮 GPU Benchmarks'}
+          </button>
+          <button className="run-button" onClick={() => loadBaselineBenchmarks('baseline_cpu')} disabled={isRunning}
+            style={{ marginLeft: '10px', background: '#666' }}>
+            💾 Load CPU Baseline
+          </button>
+          <button className="run-button" onClick={() => loadBaselineBenchmarks('baseline_gpu')} disabled={isRunning}
+            style={{ marginLeft: '10px', background: '#666' }}>
+            💾 Load GPU Baseline
           </button>
         </div>
         {progress && <div className="progress-status">{progress}</div>}
