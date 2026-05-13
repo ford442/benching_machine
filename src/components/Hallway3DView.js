@@ -9,7 +9,7 @@ const getUnitImage = (id) => {
 
 const UNITS_PER_RACK = 8;
 
-const Hallway3DView = ({ configs, onSelectUnit }) => {
+const Hallway3DView = ({ configs, onSelectUnit, activeProfile }) => {
   // 1. Group Configurations
   const groups = {
     standard: [],
@@ -63,14 +63,17 @@ const Hallway3DView = ({ configs, onSelectUnit }) => {
                 const bgImage = getUnitImage(config.id);
                 // Calculate total score safely
                 const score = config.tests ? config.tests.reduce((acc, t) => acc + t.opsPerSec, 0) : 0;
+                const isNative = activeProfile && config.compilation?.family === activeProfile.nativeFamily;
 
                 return (
                   <div
                     key={config.id}
-                    className="rack-unit-item"
+                    className={`rack-unit-item ${isNative ? 'native-unit' : ''}`}
                     style={{ backgroundImage: `url('${bgImage}')` }}
                     onClick={() => onSelectUnit(config)}
+                    title={isNative ? `${activeProfile.name} native workload` : undefined}
                   >
+                    {isNative && <span className="native-badge">NATIVE</span>}
                     <div className="unit-status-light"></div>
                     <div className="rack-label-overlay">
                       <span className="label-id">{config.id.toUpperCase()}</span>

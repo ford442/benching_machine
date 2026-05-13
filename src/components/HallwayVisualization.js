@@ -1,15 +1,22 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import './HallwayVisualization.css';
 import Hallway3DView from './Hallway3DView';
 import RackUnitDetail from './RackUnitDetail';
 import CompilerComparisonView from './CompilerComparisonView';
+import { scaleBenchmarkData } from '../utils/scaleBenchmarkData';
 
-function HallwayVisualization({ benchmarkData }) {
+function HallwayVisualization({ benchmarkData, machineProfile }) {
   const [selectedUnit, setSelectedUnit] = useState(null);
   const [viewMode, setViewMode] = useState('hallway'); // 'hallway' | 'comparison'
 
+  // Apply machine-profile scaling when a profile is active
+  const scaledData = useMemo(() => {
+    if (!machineProfile || !benchmarkData) return benchmarkData;
+    return scaleBenchmarkData(benchmarkData, machineProfile);
+  }, [benchmarkData, machineProfile]);
+
   // Fallback if data hasn't loaded yet
-  const configs = benchmarkData ? benchmarkData.configurations : [];
+  const configs = scaledData ? scaledData.configurations : [];
 
   return (
     <div className="hallway-visualization">
@@ -61,6 +68,7 @@ function HallwayVisualization({ benchmarkData }) {
           <Hallway3DView
             configs={configs}
             onSelectUnit={(config) => setSelectedUnit(config)}
+            activeProfile={machineProfile}
           />
         )}
 

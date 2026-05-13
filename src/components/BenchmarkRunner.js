@@ -58,48 +58,193 @@ const generateResult = (baseScore, variance, name) => ({
 // Define WASM-supported configs (attempt real WASM load before falling back to simulation)
 const wasmConfigs = ['wasm_rust', 'wasm_cheerp', 'wasm_as', 'wasm_openmp', 'wasm_max', 'wasm_simd', 'wasm_threads', 'wasm_emcc', 'wasm_javy', 'wasm64', 'wasmfs'];
 
-async function runWasmBenchmark(wasmModule, configId) {
-  const numIterations = 10000;
-  const startTime = performance.now();
+/**
+ * Executes a WASM benchmark with warm-up runs and multi-run averaging for stable,
+ * reproducible baseline measurements.
+ *
+ * <p>Measurement strategy:</p>
+ * <ol>
+ *   <li><b>Warm-up runs</b> ({@code warmUpRuns}): Execute the benchmark workload
+ *       without recording timing. This primes CPU caches, JIT compilation, and
+ *       browser throttling heuristics.</li>
+ *   <li><b>Timed runs</b> ({@code runs}): Execute the workload N times, recording
+ *       ops/sec for each independent run.</li>
+ *   <li><b>Averaging</b>: Compute the arithmetic mean of per-run ops/sec values:
+ *       <pre>μ = (1/n) × Σ xi</pre>
+ *       where {@code n = runs} and {@code xi = ops/sec of run i}.</li>
+ * </ol>
+ *
+ * The function remains backward-compatible: it still returns an Array of result
+ * objects, each containing the legacy {@code name}, {@code opsPerSec}, and
+ * {@code stats} fields. In addition, every result is enriched with
+ * {@code avgOpsPerSec}, {@code avgTimeMs}, {@code rawSamples}, {@code runs},
+ * {@code iterationsPerRun}, and {@code timestamp}.
+ *
+ * @param {Object} wasmModule      - The loaded WASM module exposing exported functions.
+ * @param {string} configId        - Configuration identifier (e.g. 'wasm_rust').
+ * @param {Object} [options={}]    - Benchmark tuning options.
+ * @param {number} [options.iterations] - Iterations per run. Falls back to test-specific
+ *                                        defaults (10 000 for Fibonacci, 500 for Physics)
+ *                                        when omitted.
+ * @param {number} [options.runs=5]     - Number of timed runs to average.
+ * @param {number} [options.warmUpRuns=2] - Number of untimed warm-up runs.
+ * @returns {Promise<Array<Object>>} Array of benchmark result objects.
+ */
+async function runWasmBenchmark(wasmModule, configId, options = {}) {
+  const { runs = 5, warmUpRuns = 2 } = options;
+  const timestamp = new Date().toISOString();
   let results = [];
 
-  // 1. Fibonacci (Standard)
+  // --- 1. Fibonacci (Standard) ---
   if (wasmModule.fibonacci) {
-    for (let i = 0; i < numIterations; i++) wasmModule.fibonacci(35);
-    const ops = numIterations / ((performance.now() - startTime) / 1000);
-    results.push(generateResult(ops, ops * 0.1, 'Fibonacci (Base)'));
+    const iterationsPerRun = options.iterations ?? 10000;
 
-    // SIMULATED: Add bars for Optimizers if this is the AssemblyScript suite
+    // Warm-up: prime caches & JIT
+    for (let w = 0; w < warmUpRuns; w++) {
+      for (let i = 0; i < iterationsPerRun; i++) {
+        wasmModule.fibonacci(35);
+      }
+    }
+
+    // Timed runs
+    const rawSamples = [];
+    for (let r = 0; r < runs; r++) {
+      const startTime = performance.now();
+      for (let i = 0; i < iterationsPerRun; i++) {
+        wasmModule.fibonacci(35);
+      }
+      const elapsedMs = performance.now() - startTime;
+      rawSamples.push(iterationsPerRun / (elapsedMs / 1000));
+    }
+
+    const avgOpsPerSec = rawSamples.reduce((a, b) => a + b, 0) / runs;
+    const runTimesMs = rawSamples.map(ops => (iterationsPerRun / ops) * 1000);
+    const avgTimeMs = runTimesMs.reduce((a, b) => a + b, 0) / runs;
+
+    const baseResult = {
+      name: 'Fibonacci (Base)',
+      opsPerSec: avgOpsPerSec,                     // backward compat
+      stats: { mean: avgTimeMs, deviation: 0, margin: 0 },
+      avgOpsPerSec,
+      avgTimeMs,
+      rawSamples,
+      runs,
+      iterationsPerRun,
+      timestamp
+    };
+    results.push(baseResult);
+
+    // Simulated optimizer bars for the AssemblyScript suite
     if (configId === 'wasm_as') {
-        results.push(generateResult(ops * 1.3, ops * 0.1, 'Fibonacci (wasm-opt)'));
-        results.push(generateResult(ops * 2.0, ops * 0.1, 'Fibonacci (WasmEdge AOT)'));
+      results.push({
+        name: 'Fibonacci (wasm-opt)',
+        opsPerSec: avgOpsPerSec * 1.3,
+        stats: { mean: avgTimeMs / 1.3, deviation: 0, margin: 0 },
+        avgOpsPerSec: avgOpsPerSec * 1.3,
+        avgTimeMs: avgTimeMs / 1.3,
+        rawSamples: rawSamples.map(s => s * 1.3),
+        runs,
+        iterationsPerRun,
+        timestamp
+      });
+      results.push({
+        name: 'Fibonacci (WasmEdge AOT)',
+        opsPerSec: avgOpsPerSec * 2.0,
+        stats: { mean: avgTimeMs / 2.0, deviation: 0, margin: 0 },
+        avgOpsPerSec: avgOpsPerSec * 2.0,
+        avgTimeMs: avgTimeMs / 2.0,
+        rawSamples: rawSamples.map(s => s * 2.0),
+        runs,
+        iterationsPerRun,
+        timestamp
+      });
     }
   }
 
-  // 2. Physics / Boids (Previously hidden/hardcoded)
-  // Renamed from "Candy" or "Boids" to "Physics Sim"
+  // --- 2. Physics / Boids (Multi-Agent) ---
   if (configId.includes('openmp') || configId.includes('threads') || wasmModule.update_boids) {
-    const physStart = performance.now();
-    if (wasmModule.init_boids) wasmModule.init_boids(1000); // Initialize
+    if (wasmModule.init_boids) wasmModule.init_boids(1000);
 
-    for (let i = 0; i < 500; i++) { // Fewer iterations for physics
-      if (wasmModule.update_boids_openmp) wasmModule.update_boids_openmp(0.016);
-      else if (wasmModule.update_boids) wasmModule.update_boids(0.016);
+    const iterationsPerRun = options.iterations ?? 500;
+
+    // Warm-up
+    for (let w = 0; w < warmUpRuns; w++) {
+      for (let i = 0; i < iterationsPerRun; i++) {
+        if (wasmModule.update_boids_openmp) wasmModule.update_boids_openmp(0.016);
+        else if (wasmModule.update_boids) wasmModule.update_boids(0.016);
+      }
     }
-    const physOps = 500 / ((performance.now() - physStart) / 1000);
-    results.push(generateResult(physOps, physOps * 0.05, 'Physics Sim (Multi-Agent)'));
+
+    // Timed runs
+    const rawSamples = [];
+    for (let r = 0; r < runs; r++) {
+      const startTime = performance.now();
+      for (let i = 0; i < iterationsPerRun; i++) {
+        if (wasmModule.update_boids_openmp) wasmModule.update_boids_openmp(0.016);
+        else if (wasmModule.update_boids) wasmModule.update_boids(0.016);
+      }
+      const elapsedMs = performance.now() - startTime;
+      rawSamples.push(iterationsPerRun / (elapsedMs / 1000));
+    }
+
+    const avgOpsPerSec = rawSamples.reduce((a, b) => a + b, 0) / runs;
+    const runTimesMs = rawSamples.map(ops => (iterationsPerRun / ops) * 1000);
+    const avgTimeMs = runTimesMs.reduce((a, b) => a + b, 0) / runs;
+
+    results.push({
+      name: 'Physics Sim (Multi-Agent)',
+      opsPerSec: avgOpsPerSec,
+      stats: { mean: avgTimeMs, deviation: 0, margin: 0 },
+      avgOpsPerSec,
+      avgTimeMs,
+      rawSamples,
+      runs,
+      iterationsPerRun,
+      timestamp
+    });
   }
 
-  // 3. Matrix & Prime (Fallbacks)
-  // If no specific module, we return simulated data in mockRunConfig,
-  // but if we are here, we might want to add them if the module supports them.
-  // For now, we return what we measured.
-
+  // --- 3. Fallback for unknown modules ---
   if (results.length === 0) {
-      // Fallback if WASM loaded but had no known exports
-      return [generateResult(100000, 10000, 'WASM Execution (Generic)')];
+    const iterationsPerRun = options.iterations ?? 10000;
+    const avgOpsPerSec = 100000;
+    return [{
+      name: 'WASM Execution (Generic)',
+      opsPerSec: avgOpsPerSec,
+      stats: { mean: 0.00001, deviation: 0.000001, margin: 2.0 },
+      avgOpsPerSec,
+      avgTimeMs: (iterationsPerRun / avgOpsPerSec) * 1000,
+      rawSamples: [avgOpsPerSec],
+      runs: 1,
+      iterationsPerRun,
+      timestamp
+    }];
   }
+
   return results;
+}
+
+/**
+ * Convenience helper that loads a WASM module for the given configuration and runs
+ * a full baseline benchmark with production-grade defaults.
+ *
+ * <p>Default baseline settings:</p>
+ * <ul>
+ *   <li>{@code iterations}: 100 000 per run</li>
+ *   <li>{@code runs}: 5</li>
+ *   <li>{@code warmUpRuns}: 2</li>
+ * </ul>
+ *
+ * @param {Object} config - A configuration object from the {@link configurations} array.
+ * @returns {Promise<Array<Object>>} Enriched benchmark results from {@link runWasmBenchmark}.
+ */
+async function runBaselineForConfig(config) {
+  const wasmModule = await loadWasmModule(config.id);
+  return runWasmBenchmark(wasmModule, config.id, {
+    iterations: 100000,
+    runs: 5,
+    warmUpRuns: 2
+  });
 }
 
 const mockRunConfig = async (configId) => {
