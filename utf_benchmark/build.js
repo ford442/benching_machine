@@ -49,7 +49,15 @@ function build() {
 
     // UTF-16 test version with custom extension
     const utf16Name = utf16Map[file] || file;
-    writeUTF16(srcPath, path.join(utf16Dir, utf16Name));
+    if (file === 'index.html') {
+      let content = fs.readFileSync(srcPath, 'utf8');
+      content = content.replace(/style\.css/g, 'style.1iss');
+      content = content.replace(/app\.js/g, 'app.1ijs');
+      const utf16Content = '\ufeff' + content;
+      fs.writeFileSync(path.join(utf16Dir, utf16Name), Buffer.from(utf16Content, 'utf16le'));
+    } else {
+      writeUTF16(srcPath, path.join(utf16Dir, utf16Name));
+    }
   }
 
   console.log('✅ Build complete');
