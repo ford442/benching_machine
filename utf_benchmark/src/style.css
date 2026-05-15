@@ -1,0 +1,47 @@
+body {
+  font-family: system-ui, sans-serif;
+  background: #111;
+  color: #eee;
+  margin: 0;
+  padding: 40px;
+}
+
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+canvas {
+  border: 1px solid #333;
+  background: #000;
+  display: block;
+  margin: 20px 0;
+}
+
+.stats {
+  display: flex;
+  gap: 30px;
+  margin-bottom: 10px;
+  font-family: monospace;
+}
+
+.progress-container {
+  width: 100%;
+  height: 8px;
+  background: #222;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 20px 0;
+}
+
+.progress-bar {
+  height: 100%;
+  width: 0%;
+  background: #0af;
+  transition: width 0.05s linear;
+}
+
+.note {
+  color: #888;
+  font-size: 0.9em;
+}

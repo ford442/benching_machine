@@ -1,0 +1,12 @@
+{
+  "name": "utf-benchmark",
+  "version": "0.1.0",
+  "description": "Reproducible benchmark: UTF-8 vs UTF-16 source encoding impact on runtime (WebGL + animation)",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "clean": "rm -rf dist"
+  },
+  "author": "Noah Cohn",
+  "license": "MIT"
+}

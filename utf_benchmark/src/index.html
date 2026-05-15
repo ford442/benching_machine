@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UTF Benchmark - WebGL + Animation</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>UTF-16 vs UTF-8 Runtime Benchmark</h1>
+    
+    <div class="stats">
+      <div>FPS: <span id="fps">0</span></div>
+      <div>Frame Time (avg): <span id="frameTime">0</span> ms</div>
+      <div>Long Frames: <span id="longFrames">0</span></div>
+    </div>
+
+    <canvas id="glCanvas" width="600" height="400"></canvas>
+    
+    <div class="progress-container">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    
+    <p class="note">Running WebGL shader + concurrent animation loop</p>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
