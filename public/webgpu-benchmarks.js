@@ -463,6 +463,84 @@ class WebGPUBenchmarks {
   }
 
   /**
+   * Generative Shader Dispatch Overhead (JS)
+   * Measures CPU-side overhead of updating uniforms + encoding + submitting
+   * WebGPU commands every frame. The actual shader work is trivial.
+   * This is a "headless" stress test of the JS ↔ GPU binding layer.
+   */
+  async generativeShaderOverheadJS(numFrames = 5000) {
+    if (!this.isSupported) throw new Error('WebGPU not supported');
+
+    const shaderCode = `
+      @group(0) @binding(0) var<uniform> time: f32;
+      @group(0) @binding(1) var<storage, read_write> output: array<f32>;
+
+      @compute @workgroup_size(64)
+      fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
+        let idx = global_id.x;
+        output[idx] = sin(f32(idx) * time) * cos(f32(idx) + time);
+      }
+    `;
+
+    const shaderModule = this.device.createShaderModule({ code: shaderCode });
+    const bufferSize = 1024 * 4;
+
+    const outputBuffer = this._createBuffer(
+      new Float32Array(1024),
+      GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+    );
+    const timeBuffer = this._createBuffer(
+      new Float32Array([0.0]),
+      GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+    );
+
+    const bindGroupLayout = this.device.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+      ],
+    });
+
+    const pipeline = this.device.createComputePipeline({
+      layout: this.device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+      compute: { module: shaderModule, entryPoint: 'main' },
+    });
+
+    const bindGroup = this.device.createBindGroup({
+      layout: bindGroupLayout,
+      entries: [
+        { binding: 0, resource: { buffer: timeBuffer } },
+        { binding: 1, resource: { buffer: outputBuffer } },
+      ],
+    });
+
+    const startTime = performance.now();
+
+    for (let frame = 0; frame < numFrames; frame++) {
+      this.device.queue.writeBuffer(timeBuffer, 0, new Float32Array([frame * 0.016]));
+
+      const commandEncoder = this.device.createCommandEncoder();
+      const passEncoder = commandEncoder.beginComputePass();
+      passEncoder.setPipeline(pipeline);
+      passEncoder.setBindGroup(0, bindGroup);
+      passEncoder.dispatchWorkgroups(1024 / 64);
+      passEncoder.end();
+
+      this.device.queue.submit([commandEncoder.finish()]);
+    }
+
+    await this.device.queue.onSubmittedWorkDone();
+
+    const totalTime = performance.now() - startTime;
+    const fps = (numFrames / totalTime) * 1000;
+
+    outputBuffer.destroy();
+    timeBuffer.destroy();
+
+    return fps;
+  }
+
+  /**
    * Run all WebGPU benchmarks
    */
   async runAll() {

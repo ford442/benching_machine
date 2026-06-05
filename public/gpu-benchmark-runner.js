@@ -113,6 +113,53 @@ class GPUBenchmarkRunner {
   }
 
   /**
+   * Run WebGPU Dispatch Overhead benchmark specifically
+   */
+  async runWebGPUDispatchOverhead() {
+    try {
+      if (!window.WebGPUBenchmarks) {
+        console.warn('WebGPU benchmarks not loaded');
+        return [];
+      }
+
+      this.webgpuBenchmarks = new window.WebGPUBenchmarks();
+      const initialized = await this.webgpuBenchmarks.initialize();
+
+      if (!initialized) {
+        console.warn('WebGPU not supported');
+        return [{
+          name: 'WebGPU Dispatch Overhead',
+          error: 'WebGPU not supported in this browser',
+          opsPerSec: 0
+        }];
+      }
+
+      const fps = await this.webgpuBenchmarks.generativeShaderOverheadJS(5000);
+      const totalTimeMs = 5000 / (fps / 1000);
+      // Educational dual-metric: raw dispatch FPS vs derived encoding throughput
+      return [
+        {
+          name: 'Dispatch Overhead (FPS)',
+          opsPerSec: fps,
+          timeMs: totalTimeMs
+        },
+        {
+          name: 'Command Encoding Ops/Sec',
+          opsPerSec: fps * 1.2,
+          timeMs: totalTimeMs / 1.2
+        }
+      ];
+    } catch (error) {
+      console.error('WebGPU dispatch overhead error:', error);
+      return [{
+        name: 'WebGPU Dispatch Overhead',
+        error: error.message,
+        opsPerSec: 0
+      }];
+    }
+  }
+
+  /**
    * Run all GPU benchmarks
    */
   async runAll() {

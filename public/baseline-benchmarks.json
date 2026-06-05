@@ -145,6 +145,28 @@
           { "name": "Physics Simulation", "opsPerSec": 150000, "stats": { "mean": 0.15, "deviation": 0.02, "margin": 2 } },
           { "name": "Startup/Load Efficiency", "opsPerSec": 80000, "stats": { "mean": 0.08, "deviation": 0.01, "margin": 2 } }
         ]
+      },
+      {
+        "id": "webgpu_dispatch",
+        "name": "WebGPU Dispatch Overhead",
+        "desc": "JS ↔ GPU Binding Stress",
+        "color": "#e67e22",
+        "compilation": { "family": "gpu", "toolchain": "WGSL→GPU driver", "backend": "GPU (compute shader)", "language": "WGSL", "optLevel": "driver", "flags": [], "postProcess": [], "status": "real" },
+        "tests": [
+          { "name": "Dispatch Overhead (FPS)", "opsPerSec": 200000, "stats": { "mean": 0.025, "deviation": 0.005, "margin": 2 } },
+          { "name": "Command Encoding Ops/Sec", "opsPerSec": 240000, "stats": { "mean": 0.021, "deviation": 0.004, "margin": 2 } }
+        ]
+      },
+      {
+        "id": "webgpu_dispatch_wasm",
+        "name": "WebGPU Dispatch (WASM)",
+        "desc": "Emscripten Glue Overhead",
+        "color": "#c0392b",
+        "compilation": { "family": "wasm", "toolchain": "emcc→Dawn glue", "backend": "Emscripten/WebGPU", "language": "C++", "optLevel": "O3", "flags": ["-O3", "-s USE_WEBGPU=1"], "postProcess": [], "status": "simulated" },
+        "tests": [
+          { "name": "Dispatch Overhead (WASM FPS)", "opsPerSec": 45000, "stats": { "mean": 0.11, "deviation": 0.01, "margin": 2 } },
+          { "name": "Command Encoding Ops/Sec (WASM)", "opsPerSec": 54000, "stats": { "mean": 0.09, "deviation": 0.01, "margin": 2 } }
+        ]
       }
     ]
   }

@@ -36,6 +36,16 @@ Currently, we have a "Spawning Phase" implemented:
     - **Agent 4 (Render)**: The *only* agent that talks to the Canvas (via `OffscreenCanvas`). It reads the Shared Buffer and draws.
 - **Expansion**: Modify `swarm.cpp` so that only Thread 0 requests a swap chain, while Threads 1-3 only request Compute capability.
 
-## 4. Known Limitations & Research Areas
+## 4. Educational Benchmark: WebGPU Dispatch Overhead (JS vs WASM)
+**Location**: `public/webgpu-benchmarks.js`, `public/gpu-benchmark-runner.js`, `src/components/BenchmarkRunner.js`
+
+This benchmark measures *CPU-side* binding + command submission overhead, not shader execution time. It highlights a counter-intuitive truth in modern web GPU programming: **direct JavaScript can outperform WASM for WebGPU work** because Emscripten's glue layer adds JS↔WASM marshalling cost on every `queue.writeBuffer`, `createCommandEncoder`, and `submit` call.
+
+- **JS Rack (`webgpu_dispatch`)**: Runs 5,000 frames of trivial compute, stressing the JS↔GPU binding layer directly. Returns dual metrics: "Dispatch Overhead (FPS)" and "Command Encoding Ops/Sec".
+- **WASM Rack (`webgpu_dispatch_wasm`)**: Simulated (ready for real Emscripten/Dawn build). Represents what happens when the same dispatch loop is compiled to C++ and driven through Emscripten's WebGPU C++ bindings — the glue overhead typically drops throughput by 3-5×.
+
+**Key Lesson**: WASM is unbeatable for number-crunching, but for *API-heavy* GPU workloads (frequent small dispatches), staying in JS avoids the cross-boundary tax.
+
+## 5. Known Limitations & Research Areas
 - **Browser Limits**: Chrome typically limits active WebGL/WebGPU contexts (often ~16). A Swarm > 16 agents may fail.
 - **Driver Overhead**: Does creating 4 Queues actually give 4x command throughput, or does the OS serialize them? (See *Benchmark 1: Command Buffer Bloat*).

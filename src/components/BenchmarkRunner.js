@@ -42,6 +42,8 @@ const configurations = [
   // --- F. GPU Compute ---
   { id: 'webgl_compute',  name: 'WebGL Compute',       desc: 'Fragment Shader Compute',     color: '#00d4ff', compilation: { family: 'gpu',  toolchain: 'GLSL→GPU driver',         backend: 'GPU (fragment shader)',language: 'GLSL ES 3.0', optLevel: 'driver',            flags: [],                                          postProcess: [],                         status: 'real'      } },
   { id: 'webgpu_compute', name: 'WebGPU Compute',      desc: 'WGSL Compute Shaders',        color: '#8e44ad', compilation: { family: 'gpu',  toolchain: 'WGSL→GPU driver',         backend: 'GPU (compute shader)', language: 'WGSL',       optLevel: 'driver',            flags: [],                                          postProcess: [],                         status: 'real'      } },
+  { id: 'webgpu_dispatch', name: 'WebGPU Dispatch Overhead', desc: 'JS ↔ GPU Binding Stress',  color: '#e67e22', compilation: { family: 'gpu',  toolchain: 'WGSL→GPU driver',         backend: 'GPU (compute shader)', language: 'WGSL',       optLevel: 'driver',            flags: [],                                          postProcess: [],                         status: 'real'      } },
+  { id: 'webgpu_dispatch_wasm', name: 'WebGPU Dispatch (WASM)', desc: 'Emscripten Glue Overhead', color: '#c0392b', compilation: { family: 'wasm', toolchain: 'emcc→Dawn glue',          backend: 'Emscripten/WebGPU',    language: 'C++',        optLevel: 'O3',                flags: ['-O3', '-s USE_WEBGPU=1'],                  postProcess: [],                         status: 'simulated' } },
 ];
 
 const calculateScore = (config) => {
@@ -249,13 +251,18 @@ async function runBaselineForConfig(config) {
 
 const mockRunConfig = async (configId) => {
   // 1. REAL GPU BENCHMARKING
-  if (configId === 'webgl_compute' || configId === 'webgpu_compute') {
+  if (configId === 'webgl_compute' || configId === 'webgpu_compute' || configId === 'webgpu_dispatch') {
     try {
       if (window.GPUBenchmarkRunner) {
         const runner = new window.GPUBenchmarkRunner();
-        const results = configId === 'webgl_compute'
-          ? await runner.runWebGLBenchmarks()
-          : await runner.runWebGPUBenchmarks(); // This now calls our updated Tiled/Naive tests
+        let results;
+        if (configId === 'webgl_compute') {
+          results = await runner.runWebGLBenchmarks();
+        } else if (configId === 'webgpu_dispatch') {
+          results = await runner.runWebGPUDispatchOverhead();
+        } else {
+          results = await runner.runWebGPUBenchmarks();
+        }
 
         return results.map(r => ({
           name: r.name,
@@ -266,6 +273,29 @@ const mockRunConfig = async (configId) => {
     } catch (e) {
       console.error(`${configId} failed:`, e);
     }
+  }
+
+  // 1b. SIMULATED WASM DISPATCH OVERHEAD (Educational)
+  // Real implementation would call an Emscripten-built WASM module that uses
+  // the Dawn WebGPU C++ API via Emscripten's glue layer, which adds extra
+  // JS↔WASM marshalling cost per command buffer submission.
+  if (configId === 'webgpu_dispatch_wasm') {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve([
+          {
+            name: 'Dispatch Overhead (WASM FPS)',
+            opsPerSec: 45000 + Math.random() * 5000,
+            stats: { mean: 0.11, deviation: 0.01, margin: 2 }
+          },
+          {
+            name: 'Command Encoding Ops/Sec (WASM)',
+            opsPerSec: 54000 + Math.random() * 6000,
+            stats: { mean: 0.09, deviation: 0.01, margin: 2 }
+          }
+        ]);
+      }, 1200 + Math.random() * 400);
+    });
   }
 
   // 2. REAL WASM BENCHMARK
@@ -307,6 +337,8 @@ const mockRunConfig = async (configId) => {
       case 'wasmfs': m = 2.0; break;
       case 'webgl_compute': m = 8.0; break;
       case 'webgpu_compute': m = 12.0; break;
+      case 'webgpu_dispatch': m = 10.0; break;
+      case 'webgpu_dispatch_wasm': m = 2.5; break;
       default: m = 1.0;
     }
     
@@ -329,6 +361,20 @@ const mockRunConfig = async (configId) => {
                  generateResult(500000, 10000, 'Matrix Mult (Naive Global)'),
                  generateResult(2500000, 50000, 'Matrix Mult (Tiled Shared)'), // Much faster
                  generateResult(150000, 10000, 'Physics Sim')
+             ];
+        }
+
+        if (configId === 'webgpu_dispatch') {
+             results = [
+                 generateResult(200000, 20000, 'Dispatch Overhead (FPS)'),
+                 generateResult(240000, 24000, 'Command Encoding Ops/Sec')
+             ];
+        }
+
+        if (configId === 'webgpu_dispatch_wasm') {
+             results = [
+                 generateResult(45000, 5000, 'Dispatch Overhead (WASM FPS)'),
+                 generateResult(54000, 6000, 'Command Encoding Ops/Sec (WASM)')
              ];
         }
 
