@@ -42,7 +42,34 @@ Currently, we have a "Spawning Phase" implemented:
 This benchmark measures *CPU-side* binding + command submission overhead, not shader execution time. It highlights a counter-intuitive truth in modern web GPU programming: **direct JavaScript can outperform WASM for WebGPU work** because Emscripten's glue layer adds JS↔WASM marshalling cost on every `queue.writeBuffer`, `createCommandEncoder`, and `submit` call.
 
 - **JS Rack (`webgpu_dispatch`)**: Runs 5,000 frames of trivial compute, stressing the JS↔GPU binding layer directly. Returns dual metrics: "Dispatch Overhead (FPS)" and "Command Encoding Ops/Sec".
-- **WASM Rack (`webgpu_dispatch_wasm`)**: Simulated (ready for real Emscripten/Dawn build). Represents what happens when the same dispatch loop is compiled to C++ and driven through Emscripten's WebGPU C++ bindings — the glue overhead typically drops throughput by 3-5×.
+- **WASM Rack (`webgpu_dispatch_wasm`)**: Attempts to load a real Emscripten/Dawn C++ build, then falls back to simulation when the artifact is unavailable or WebGPU initialization fails. Represents what happens when the same dispatch loop is compiled to C++ and driven through Emscripten's WebGPU C++ bindings — the glue overhead typically drops throughput by 3-5×.
+
+### Real Emscripten Implementation
+**Location**: `backend/experiments/webgpu_wasm`, `src/utils/webgpuWasmBenchLoader.js`
+
+Current status is experimental. The C++ implementation uses Emscripten WebGPU (`-s USE_WEBGPU=1`) and Dawn-style `wgpu::` APIs to run the same small generative compute workload as the JS rack: each frame writes a `time` uniform, creates a command encoder, dispatches 16 workgroups over a 1,024-float storage buffer, and submits the command buffer.
+
+Build it with:
+
+```bash
+cd backend/experiments/webgpu_wasm
+./build.sh
+```
+
+This produces:
+
+```text
+public/wasm/webgpu_bench.js
+public/wasm/webgpu_bench.wasm
+```
+
+Known limitations:
+- Device creation is asynchronous, so the React loader must wait for `isWebGPUDeviceReady()` before calling `runGenerativeShaderOverhead(5000)`.
+- Emscripten's WebGPU support and Dawn wrapper surface are still moving targets; browser, Emscripten, and Chrome version differences can affect build success and runtime behavior.
+- The benchmark intentionally measures CPU-side API traffic, not shader execution throughput. Most measured overhead is expected around `queue.WriteBuffer`, command encoder/pass creation, and `queue.Submit`.
+- WebGPU may be unavailable on the user's browser/GPU, or the compiled artifacts may simply not exist in `public/wasm/`.
+
+The simulated version remains as a fallback so the rack is still visible in demos, CI builds, and local checkouts where Emscripten is not installed or WebGPU is disabled. Treat simulated numbers as educational placeholders; treat real Emscripten numbers as experimental browser/runtime measurements.
 
 **Key Lesson**: WASM is unbeatable for number-crunching, but for *API-heavy* GPU workloads (frequent small dispatches), staying in JS avoids the cross-boundary tax.
 
