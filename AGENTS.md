@@ -76,3 +76,21 @@ The simulated version remains as a fallback so the rack is still visible in demo
 ## 5. Known Limitations & Research Areas
 - **Browser Limits**: Chrome typically limits active WebGL/WebGPU contexts (often ~16). A Swarm > 16 agents may fail.
 - **Driver Overhead**: Does creating 4 Queues actually give 4x command throughput, or does the OS serialize them? (See *Benchmark 1: Command Buffer Bloat*).
+
+## Cursor Cloud specific instructions
+
+The update script (`npm install`) already installs Node dependencies on startup. This is a Node.js + React (Create React App / `react-scripts`) project. Standard run commands live in `README.md`, `docs/QUICKSTART.md`, `CLAUDE.md`, and `package.json` scripts — refer to those rather than duplicating.
+
+Services (all run from repo root):
+- **CLI benchmark runner** — `npm run bench` (e.g. `node backend/cli.js run --cpu`). Runs real Benchmark.js measurements; a full run takes tens of seconds.
+- **Web UI** — `npm run web` (`react-scripts start`, port 3000). Set `BROWSER=none` when starting headless to avoid a browser-launch step.
+- **Backend API** — `npm run serve` (`node backend/server.js`, port 4000). Endpoints: `GET /api/configurations`, `POST /api/run` with body `{ "configs": ["js_inline", ...] }`. Returns mocked-but-consistent results.
+
+Non-obvious caveats:
+- **No standalone lint script and no committed ESLint config.** Linting runs through `react-scripts` (CRA's built-in `eslint-config-react-app`); ESLint errors/warnings surface in the `npm run web` / `npm run build` output. There is no `npm run lint`.
+- **No committed lockfile** (`package-lock.json` is gitignored), so `npm install` resolves fresh each time.
+- **`express` is not listed in `package.json`** but `backend/server.js` uses it; it currently resolves as a transitive dependency, so `npm run serve` works after `npm install`.
+- **`npm test` is a stub** (`echo "No tests yet"`); there is no automated test suite.
+- **Do NOT click "▶ Run Full Suite" in the web UI as a smoke test.** The `wasm_as` ("AssemblyScript Suite") rack loads the real `public/benchmarks/physics/candy_physics.wasm` and runs recursive `fibonacci(35)` across large iteration counts on the browser main thread, which freezes/crashes the tab ("Page Unresponsive" → "Aw Snap"). For a quick, reliable UI smoke test use the **"💾 Load CPU Baseline"** / **"💾 Load GPU Baseline"** buttons (load recorded data from `public/baseline-benchmarks.json`) and/or the **"🎮 GPU Benchmarks"** button, then toggle the **"COMPILER CHARTS"** view.
+- **WASM build scripts** (`build:physics`, `build:omp`, `build:rust`, `build:cheerp`, etc.) require external toolchains (Emscripten, Rust/wasm-pack, WasmEdge, Cheerp) that are NOT installed by the update script. They are experimental/optional; prebuilt artifacts already exist under `public/benchmarks/` and `public/wasm/`, so the app runs without rebuilding them.
+- **WebGPU is typically unavailable** in this headless environment; the app detects this and falls back to simulated numbers (WebGPU racks may show "OFFLINE").
