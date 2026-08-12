@@ -16,11 +16,16 @@ The app has two modes:
 
 ```
 benching_machine/
+├── shared/
+│   └── benchmark-registry.json # CANONICAL config source (hand-edited — see below)
+├── scripts/
+│   └── generate-benchmark-config.js  # Generates configs.generated.js + benchmarkRegistry.js
 ├── backend/
 │   ├── cli.js                  # CLI entry point (Commander.js)
 │   ├── server.js               # Optional Express API (port 4000)
 │   └── benchmarks/
-│       ├── configs.js          # MASTER config list + mock runner
+│       ├── configs.js          # Mock runner logic; imports generated config data
+│       ├── configs.generated.js # GENERATED — do not hand-edit
 │       ├── compilation.js      # CLI compilation benchmarks (Benchmark.js)
 │       ├── cpu.js              # CPU benchmarks (Fibonacci, Prime, Matrix)
 │       ├── memory.js           # Memory benchmarks
@@ -33,14 +38,17 @@ benching_machine/
 ├── src/
 │   ├── App.js                  # React root, state management
 │   ├── index.js                # React entry point
+│   ├── generated/
+│   │   └── benchmarkRegistry.js # GENERATED — do not hand-edit
 │   ├── components/
-│   │   ├── BenchmarkRunner.js  # Control panel + config runner (mirrors configs.js)
+│   │   ├── BenchmarkRunner.js  # Control panel + config runner; imports generated config data
 │   │   ├── HallwayVisualization.js  # View mode switcher (hallway / charts)
 │   │   ├── Hallway3DView.js    # Immersive server rack view
 │   │   ├── RackUnitDetail.js   # Zoomed per-rack unit detail
 │   │   └── CompilerComparisonView.js  # Analytical compiler charts
 │   └── utils/
 │       ├── wasmLoader.js       # Dynamic WASM module loader
+│       ├── machineProfiles.js  # Re-exports generated machineProfiles + helpers
 │       └── snapshotManager.js  # Save/load/diff benchmark snapshots
 ├── public/
 │   ├── webgl-benchmarks.js     # WebGL fragment shader compute
@@ -114,32 +122,41 @@ npm run build:cheerp
 
 ## How to Add a New Compilation Config
 
-1. **`backend/benchmarks/configs.js`** — add an entry to `configurations[]`:
-   ```js
+Benchmark configuration has a **single hand-edited source file**: `shared/benchmark-registry.json`. Backend and frontend both import *generated* modules derived from it — never add configs directly to `backend/benchmarks/configs.js` or `src/components/BenchmarkRunner.js`.
+
+1. **`shared/benchmark-registry.json`** — add an entry to `configurations[]`:
+   ```json
    {
-     id: 'js_esbuild',
-     name: 'esbuild',
-     desc: 'Go-based bundler/minifier',
-     color: '#ffcc00',
-     compilation: {
-       family: 'js',
-       toolchain: 'esbuild',
-       backend: 'Go',
-       language: 'JavaScript',
-       optLevel: 'minify',
-       flags: ['--minify', '--bundle'],
-       postProcess: [],
-       status: 'simulated',  // change to 'real' when artifacts exist
-     }
+     "id": "js_esbuild",
+     "name": "esbuild",
+     "desc": "Go-based bundler/minifier",
+     "color": "#ffcc00",
+     "compilation": {
+       "family": "js",
+       "toolchain": "esbuild",
+       "backend": "Go",
+       "language": "JavaScript",
+       "optLevel": "minify",
+       "flags": ["--minify", "--bundle"],
+       "postProcess": [],
+       "status": "simulated"
+     },
+     "multiplier": 1.08
    }
    ```
-   Add a case to `getMultiplier()` with a realistic relative value.
+   `status` is one of `'real' | 'simulated' | 'experimental'`. `multiplier` is the simulation factor used by both the CLI mock runner and the frontend fallback simulation.
 
-2. **`src/components/BenchmarkRunner.js`** — mirror the same entry in its local `configurations[]` array (this file is the frontend's copy).
+2. **Regenerate**: run `npm run config:generate`. This regenerates:
+   - `backend/benchmarks/configs.generated.js` (CommonJS, imported by `backend/benchmarks/configs.js`)
+   - `src/generated/benchmarkRegistry.js` (ESM, imported by `src/components/BenchmarkRunner.js` and `src/utils/machineProfiles.js`)
+
+   Commit the regenerated files alongside the registry change. `npm run config:check` (run in CI) fails the build if the generated files are stale relative to the registry.
 
 3. **`src/utils/wasmLoader.js`** — if the config loads a WASM artifact, add a `case` for its `id` pointing to the artifact path.
 
 4. **`BENCHMARKS_STATUS.md`** — add a row documenting real vs simulated status.
+
+Hand-editing the config data in `backend/benchmarks/configs.js`, `src/components/BenchmarkRunner.js`, `src/utils/machineProfiles.js`, or either `*.generated.js` file will be overwritten (or caught by `npm run config:check`) the next time the registry is regenerated.
 
 ---
 
@@ -246,7 +263,7 @@ These are not yet in the benchmark suite but are worth adding:
 
 ## Common Pitfalls
 
-- **BenchmarkRunner.js duplicates configs.js** — both must be kept in sync when adding new configs.
+- **Editing generated files directly** — `backend/benchmarks/configs.generated.js` and `src/generated/benchmarkRegistry.js` are overwritten by `npm run config:generate`. Edit `shared/benchmark-registry.json` instead and regenerate.
 - **WASM 404s in browser**: `wasmLoader.js` pre-checks file existence; if artifacts aren't built you'll get a silent fallback to simulation.
 - **SharedArrayBuffer (for threads)**: requires COOP/COEP headers — the dev server in `package.json` scripts sets these via `REACT_APP_*` env or a custom server wrapper.
 - **WebGPU availability**: only Chrome/Edge 113+. The app checks `navigator.gpu` and disables the GPU button if unavailable.
