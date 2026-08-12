@@ -15,6 +15,8 @@
     "build:all-wasm": "npm run build:physics && npm run build:omp && cd backend/benchmarks/rust && ./build.sh && echo 'Cheerp: Run backend/benchmarks/cheerp/build.sh manually'",
     "build:rust": "cd backend/benchmarks/rust && ./build.sh",
     "build:cheerp": "cd backend/benchmarks/cheerp && ./build.sh",
+    "config:generate": "node scripts/generate-benchmark-config.js",
+    "config:check": "node scripts/generate-benchmark-config.js --check",
     "test": "echo \"No tests yet\" && exit 0"
   },
   "keywords": [
